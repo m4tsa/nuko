@@ -7,3 +7,9 @@ description = "Future static site generator"
 license = "MIT"
 
 [dependencies]
+atty = "0.2.14"
+clap = "2.33.2"
+lazy_static = "1.4.0"
+
+[[bin]]
+name = "nuko"
