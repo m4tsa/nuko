@@ -16,6 +16,7 @@ pub fn find_root_dir(dir: &str) -> Result<PathBuf> {
     if manifest_path.is_file() {
         Ok(path)
     } else {
+        // Check parts upwards if we are on the default relative path
         if can_check_upwards {
             let mut up_path = path.clone();
 
@@ -34,11 +35,7 @@ pub fn find_root_dir(dir: &str) -> Result<PathBuf> {
 
         let abs_path = std::fs::canonicalize(path)?;
 
-        return Err(UtilsError::CouldNotFindManifest(
-            dir.into(),
-            abs_path.to_string_lossy().into(),
-        )
-        .into());
+        return Err(UtilsError::CouldNotFindManifest(abs_path.to_string_lossy().into()).into());
     }
 }
 
@@ -48,6 +45,6 @@ pub fn leak_str(s: String) -> &'static str {
 
 #[derive(Error, Debug)]
 pub enum UtilsError {
-    #[error("could not find nuko manifest in \"{0}\", absolute: {1}")]
-    CouldNotFindManifest(String, String),
+    #[error("could not find nuko manifest in {0}")]
+    CouldNotFindManifest(String),
 }
