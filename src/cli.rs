@@ -1,5 +1,12 @@
-use crate::{console::ColorMode, utils::leak_str};
-use clap::{crate_authors, crate_description, crate_version, App, AppSettings, Arg, SubCommand};
+use crate::{
+    console::ColorMode,
+    utils::{find_root_dir, leak_str},
+};
+use anyhow::Result;
+use clap::{
+    crate_authors, crate_description, crate_version, App, AppSettings, Arg, ArgMatches, SubCommand,
+};
+use std::path::{Path, PathBuf};
 
 pub fn create_cli() -> App<'static, 'static> {
     // Generate lowercase options for all the color modes
@@ -8,7 +15,7 @@ pub fn create_cli() -> App<'static, 'static> {
         .map(|s| leak_str(s.to_lowercase()))
         .collect::<Vec<&'static str>>();
 
-    //
+    // Create the clap cli application
     App::new("nuko")
         .about(crate_description!())
         .author(crate_authors!())
@@ -22,9 +29,16 @@ pub fn create_cli() -> App<'static, 'static> {
                 .default_value("auto")
                 .help("Console coloring mode"),
         )
+        .arg(
+            Arg::with_name("root_dir")
+                .long("root-dir")
+                .takes_value(true)
+                .default_value(".")
+                .help("Directory to use as project root dir for the command"),
+        )
         .subcommands(vec![
             SubCommand::with_name("init")
-                .about("Create a new nuko site")
+                .about("Create a new nuko site project")
                 .arg(
                     Arg::with_name("path")
                         .default_value(".")
@@ -33,12 +47,29 @@ pub fn create_cli() -> App<'static, 'static> {
             SubCommand::with_name("build")
                 .about("Builds the nuko site into the project dir")
                 .arg(
-                    Arg::with_name("output_dir")
-                        .long("output-dir")
+                    Arg::with_name("out_dir")
+                        .long("out-dir")
                         .short("o")
                         .default_value("out")
                         .takes_value(true)
                         .help("Path to the output directory for the build command"),
                 ),
         ])
+}
+
+// Global config
+pub struct CliConfig {
+    root_path: PathBuf,
+}
+
+impl CliConfig {
+    pub fn root_path(&self) -> &Path {
+        &self.root_path
+    }
+}
+
+pub fn create_cli_config(matches: &ArgMatches) -> Result<CliConfig> {
+    let root_path = find_root_dir(matches.value_of("root_dir").unwrap())?;
+
+    Ok(CliConfig { root_path })
 }
