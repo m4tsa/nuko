@@ -5,7 +5,7 @@ use thiserror::Error;
 const MANIFEST_FILE_NAME: &'static str = "Nuko.toml";
 const MAX_UPWARDS_MANIFEST_PEEKS: usize = 8;
 
-pub fn find_root_dir(dir: &str) -> Result<PathBuf> {
+pub fn find_root_dir(dir: &str) -> Result<(PathBuf, PathBuf)> {
     // Check paths upwards if we are looking at the relative path
     let can_check_upwards = dir == ".";
 
@@ -14,7 +14,7 @@ pub fn find_root_dir(dir: &str) -> Result<PathBuf> {
     let manifest_path = path.join(MANIFEST_FILE_NAME);
 
     if manifest_path.is_file() {
-        Ok(path)
+        Ok((path, manifest_path))
     } else {
         // Check parts upwards if we are on the default relative path
         if can_check_upwards {
@@ -28,7 +28,7 @@ pub fn find_root_dir(dir: &str) -> Result<PathBuf> {
                 let manifest_path = up_path.join(MANIFEST_FILE_NAME);
 
                 if manifest_path.is_file() {
-                    return Ok(manifest_path);
+                    return Ok((up_path, manifest_path));
                 }
             }
         }

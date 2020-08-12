@@ -7,11 +7,19 @@ description = "Future static site generator"
 license = "MIT"
 
 [dependencies]
-atty = "0.2.14"
-anyhow = "1.0.32"
-clap = "2.33.2"
-lazy_static = "1.4.0"
-thiserror = "1.0.20"
+# Project crates
+config = { package = "nuko-config", path = "./crates/config" }
+# Crates
+atty = "0.2"
+anyhow = "1.0"
+clap = "2.33"
+lazy_static = "1.4"
+thiserror = "1.0"
 
 [[bin]]
 name = "nuko"
+
+[workspace]
+members = [
+    "crates/config"
+]
