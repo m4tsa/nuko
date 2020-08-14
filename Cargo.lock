@@ -91,6 +91,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuko-org-parser"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "smol_str",
+ "thiserror",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -124,6 +133,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "smol_str"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f7909a1d8bc166a862124d84fdc11bda0ea4ed3157ccca662296919c2972db1"
 
 [[package]]
 name = "strsim"
