@@ -6,12 +6,12 @@ pub struct OrgSection {
     pub children: Vec<OrgSectionContent>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct OrgHeadline {
     pub level: u8,
     pub keyword: Option<SmolStr>,
     pub priority: Option<SmolStr>,
-    pub content: SmolStr,
+    pub content: Vec<OrgSectionContent>,
     pub tags: Option<Vec<SmolStr>>,
 }
 

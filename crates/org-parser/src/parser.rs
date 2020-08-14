@@ -8,6 +8,7 @@ pub struct Parser<'a> {
     input_len: usize,
     offset: usize,
     document: OrgDocument,
+    headline: Option<OrgHeadline>,
 }
 
 impl<'a> Parser<'a> {
@@ -17,6 +18,7 @@ impl<'a> Parser<'a> {
             input_len: input.len(),
             offset: 0,
             document: OrgDocument::default(),
+            headline: None,
         }
     }
 
@@ -84,10 +86,52 @@ impl<'a> Parser<'a> {
         }
 
         // Headline stars
-        if self.continue_until(|c| c == '*') > 0 {
-            unimplemented!("headline");
+        let stars = self.continue_until(|c| c == '*');
+
+        if stars > 0 {
+            // Headlines needs a space after the stars
+            if self.next_char() == Some(' ') {
+                // Check if there is a previous unused headline
+                if let Some(headline) = self.headline.take() {
+                    self.document.content.push(OrgContent::Section(OrgSection {
+                        headline: Some(headline),
+                        children: vec![],
+                    }));
+                }
+
+                let headline_text_start = self.offset;
+
+                self.continue_until(|c| c != '\n');
+
+                let mut keyword = None;
+
+                let headline_text = self.sub_str(headline_text_start, self.offset)?;
+                let mut content_start = headline_text_start;
+
+                let mut splitted = headline_text.split_ascii_whitespace();
+
+                if let Some(first_word) = splitted.next() {
+                    if first_word == "TODO" {
+                        keyword = Some("TODO".into());
+
+                        content_start += first_word.len() + ' '.len_utf8();
+                    }
+                }
+
+                let content = self.parse_section_content(content_start)?;
+
+                self.headline = Some(OrgHeadline {
+                    level: stars as u8,
+                    keyword,
+                    content,
+                    ..Default::default()
+                });
+            } else {
+                self.offset = start_offset;
+            }
         }
-        //
+
+        // Peek for other special start of line things
         match (self.peek_char(), self.peek_char_offset(1)) {
             // Comment
             (Some('#'), Some(' ')) => {
@@ -123,9 +167,9 @@ impl<'a> Parser<'a> {
             _ => {}
         }
 
-        let content = self.parse_section_content(start_offset)?;
+        let content = self.parse_section_content(self.offset)?;
         Ok(OrgContent::Section(OrgSection {
-            headline: None,
+            headline: self.headline.take(),
             children: content,
         }))
     }
@@ -140,9 +184,7 @@ impl<'a> Parser<'a> {
 
         section_content.push(OrgSectionContent::Text(text.into()));
 
-        if self.next_if('\n') {
-            section_content.push(OrgSectionContent::Newline);
-        }
+        self.next_if('\n');
 
         Ok(section_content)
     }
@@ -166,7 +208,8 @@ pub enum ParserError {
 #[cfg(test)]
 mod tests {
     use super::{
-        OrgContent, OrgDocument, OrgKeyword, OrgSection, OrgSectionContent, Parser, Result,
+        OrgContent, OrgDocument, OrgHeadline, OrgKeyword, OrgSection, OrgSectionContent, Parser,
+        Result,
     };
 
     fn parse(input: &str) -> Result<OrgDocument> {
@@ -186,6 +229,40 @@ mod tests {
                     ..Default::default()
                 })
             ]
+        )
+    }
+
+    #[test]
+    fn headline() {
+        let document = parse("* test\nhello").expect("comment test");
+
+        assert_eq!(
+            document.content,
+            vec![OrgContent::Section(OrgSection {
+                headline: Some(OrgHeadline {
+                    level: 1,
+                    content: vec![OrgSectionContent::Text("test".into())],
+                    ..OrgHeadline::default()
+                }),
+                children: vec![OrgSectionContent::Text("hello".into())],
+                ..Default::default()
+            })]
+        );
+
+        let document = parse("* TODO test\nhello").expect("comment test");
+
+        assert_eq!(
+            document.content,
+            vec![OrgContent::Section(OrgSection {
+                headline: Some(OrgHeadline {
+                    level: 1,
+                    keyword: Some("TODO".into()),
+                    content: vec![OrgSectionContent::Text("test".into())],
+                    ..OrgHeadline::default()
+                }),
+                children: vec![OrgSectionContent::Text("hello".into())],
+                ..Default::default()
+            })]
         )
     }
 
