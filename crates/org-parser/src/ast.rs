@@ -31,8 +31,12 @@ pub enum OrgContent {
 #[derive(Debug, PartialEq)]
 pub enum OrgSectionContent {
     Text(String),
+    Bold(Vec<OrgSectionContent>),
+    Italic(Vec<OrgSectionContent>),
+    Underlined(Vec<OrgSectionContent>),
+    Verbatim(Vec<OrgSectionContent>),
+    Code(Vec<OrgSectionContent>),
     Strikethrough(Vec<OrgSectionContent>),
-    Newline,
 }
 
 #[derive(Default, Debug, PartialEq)]

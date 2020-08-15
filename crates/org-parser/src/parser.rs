@@ -1,5 +1,7 @@
 use crate::ast::*;
 use anyhow::Result;
+use fancy_regex::Regex;
+use lazy_static::lazy_static;
 use std::ops::Range;
 use thiserror::Error;
 
@@ -77,7 +79,7 @@ impl<'a> Parser<'a> {
             .ok_or_else(|| ParserError::SubStrOutOfRange { range: start..end }.into())
     }
 
-    pub fn parse_content(&mut self) -> Result<OrgContent> {
+    fn parse_content(&mut self) -> Result<OrgContent> {
         let start_offset = self.offset;
         let prev_char = self.prev_char();
 
@@ -111,9 +113,13 @@ impl<'a> Parser<'a> {
                 let mut splitted = headline_text.split_ascii_whitespace();
 
                 if let Some(first_word) = splitted.next() {
-                    if first_word == "TODO" {
-                        keyword = Some("TODO".into());
+                    let is_keyword = match first_word {
+                        "TODO" | "DONE" => true,
+                        _ => false,
+                    };
 
+                    if is_keyword {
+                        keyword = Some(first_word.into());
                         content_start += first_word.len() + ' '.len_utf8();
                     }
                 }
@@ -174,19 +180,74 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    pub fn parse_section_content(&mut self, start_offset: usize) -> Result<Vec<OrgSectionContent>> {
-        let mut section_content = Vec::new();
+    fn parse_section_content(&mut self, start_offset: usize) -> Result<Vec<OrgSectionContent>> {
+        lazy_static! {
+            pub static ref EMPHASIS_REGEX: Regex =
+                Regex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
+        }
+
+        fn parse_section(text: &str) -> Result<Vec<OrgSectionContent>> {
+            if text.is_empty() {
+                return Ok(Vec::with_capacity(0));
+            }
+
+            match EMPHASIS_REGEX.captures(text) {
+                Ok(captures) => {
+                    if let Some(captures) = captures {
+                        let mut content = Vec::new();
+
+                        let capture = captures.get(0).unwrap();
+                        let capture_str = capture.as_str();
+                        let (mut start, mut end) = (capture.start(), capture.end());
+
+                        // The regex can start or stop with a space, correct this no since the no match in the capture group does not change the actual capture range
+                        if capture_str.starts_with(' ') {
+                            start += 1;
+                        }
+
+                        if capture_str.ends_with(' ') {
+                            end -= 1;
+                        }
+
+                        if start > 0 {
+                            content.push(OrgSectionContent::Text(text[..start].into()));
+                        }
+
+                        let emphasis_ty = captures.get(1).unwrap().as_str();
+                        let inner = parse_section(captures.get(2).unwrap().as_str())?;
+
+                        let section_content = match emphasis_ty {
+                            "*" => OrgSectionContent::Bold(inner),
+                            "/" => OrgSectionContent::Italic(inner),
+                            "_" => OrgSectionContent::Underlined(inner),
+                            "=" => OrgSectionContent::Verbatim(inner),
+                            "~" => OrgSectionContent::Code(inner),
+                            "+" => OrgSectionContent::Strikethrough(inner),
+                            _ => unreachable!(),
+                        };
+
+                        content.push(section_content);
+
+                        content.append(&mut parse_section(&text[end..])?);
+
+                        Ok(content)
+                    } else {
+                        Ok(vec![OrgSectionContent::Text(text.into())])
+                    }
+                }
+                Err(err) => panic!(err),
+            }
+        }
 
         self.continue_until(|c| c != '\n');
 
         // TODO: Handle text effects + elements like date, links and images
         let text = self.sub_str(start_offset, self.offset)?;
-
-        section_content.push(OrgSectionContent::Text(text.into()));
+        let content = parse_section(text)?;
 
         self.next_if('\n');
 
-        Ok(section_content)
+        Ok(content)
     }
 
     pub fn parse(mut self) -> Result<OrgDocument> {
@@ -230,6 +291,31 @@ mod tests {
                 })
             ]
         )
+    }
+
+    #[test]
+    fn emphasis() {
+        let document = parse("hello *there* /nice +day+ today/").expect("comment test");
+
+        assert_eq!(
+            document.content,
+            vec![OrgContent::Section(OrgSection {
+                headline: None,
+                children: vec![
+                    OrgSectionContent::Text("hello ".into()),
+                    OrgSectionContent::Bold(vec![OrgSectionContent::Text("there".into())]),
+                    OrgSectionContent::Text(" ".into()),
+                    OrgSectionContent::Italic(vec![
+                        OrgSectionContent::Text("nice ".into()),
+                        OrgSectionContent::Strikethrough(vec![OrgSectionContent::Text(
+                            "day".into()
+                        )]),
+                        OrgSectionContent::Text(" today".into()),
+                    ])
+                ],
+                ..Default::default()
+            })]
+        );
     }
 
     #[test]
