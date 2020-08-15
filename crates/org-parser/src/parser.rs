@@ -13,6 +13,64 @@ pub struct Parser<'a> {
     headline: Option<OrgHeadline>,
 }
 
+lazy_static! {
+    pub static ref EMPHASIS_REGEX: Regex =
+        Regex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
+}
+
+fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
+    if text.is_empty() {
+        return Ok(Vec::with_capacity(0));
+    }
+
+    match EMPHASIS_REGEX.captures(text) {
+        Ok(captures) => {
+            if let Some(captures) = captures {
+                let mut content = Vec::new();
+
+                let capture = captures.get(0).unwrap();
+                let capture_str = capture.as_str();
+                let (mut start, mut end) = (capture.start(), capture.end());
+
+                // The regex can start or stop with a space, correct this no since the no match in the capture group does not change the actual capture range
+                if capture_str.starts_with(' ') {
+                    start += 1;
+                }
+
+                if capture_str.ends_with(' ') {
+                    end -= 1;
+                }
+
+                if start > 0 {
+                    content.push(OrgSectionContent::Text(text[..start].into()));
+                }
+
+                let emphasis_ty = captures.get(1).unwrap().as_str();
+                let inner = parse_emphasis(captures.get(2).unwrap().as_str())?;
+
+                let section_content = match emphasis_ty {
+                    "*" => OrgSectionContent::Bold(inner),
+                    "/" => OrgSectionContent::Italic(inner),
+                    "_" => OrgSectionContent::Underlined(inner),
+                    "=" => OrgSectionContent::Verbatim(inner),
+                    "~" => OrgSectionContent::Code(inner),
+                    "+" => OrgSectionContent::Strikethrough(inner),
+                    _ => unreachable!(),
+                };
+
+                content.push(section_content);
+
+                content.append(&mut parse_emphasis(&text[end..])?);
+
+                Ok(content)
+            } else {
+                Ok(vec![OrgSectionContent::Text(text.into())])
+            }
+        }
+        Err(err) => panic!(err),
+    }
+}
+
 impl<'a> Parser<'a> {
     pub fn new(input: &'a str) -> Parser<'a> {
         Parser {
@@ -232,69 +290,11 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_section_content(&mut self, start_offset: usize) -> Result<Vec<OrgSectionContent>> {
-        lazy_static! {
-            pub static ref EMPHASIS_REGEX: Regex =
-                Regex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
-        }
-
-        fn parse_section(text: &str) -> Result<Vec<OrgSectionContent>> {
-            if text.is_empty() {
-                return Ok(Vec::with_capacity(0));
-            }
-
-            match EMPHASIS_REGEX.captures(text) {
-                Ok(captures) => {
-                    if let Some(captures) = captures {
-                        let mut content = Vec::new();
-
-                        let capture = captures.get(0).unwrap();
-                        let capture_str = capture.as_str();
-                        let (mut start, mut end) = (capture.start(), capture.end());
-
-                        // The regex can start or stop with a space, correct this no since the no match in the capture group does not change the actual capture range
-                        if capture_str.starts_with(' ') {
-                            start += 1;
-                        }
-
-                        if capture_str.ends_with(' ') {
-                            end -= 1;
-                        }
-
-                        if start > 0 {
-                            content.push(OrgSectionContent::Text(text[..start].into()));
-                        }
-
-                        let emphasis_ty = captures.get(1).unwrap().as_str();
-                        let inner = parse_section(captures.get(2).unwrap().as_str())?;
-
-                        let section_content = match emphasis_ty {
-                            "*" => OrgSectionContent::Bold(inner),
-                            "/" => OrgSectionContent::Italic(inner),
-                            "_" => OrgSectionContent::Underlined(inner),
-                            "=" => OrgSectionContent::Verbatim(inner),
-                            "~" => OrgSectionContent::Code(inner),
-                            "+" => OrgSectionContent::Strikethrough(inner),
-                            _ => unreachable!(),
-                        };
-
-                        content.push(section_content);
-
-                        content.append(&mut parse_section(&text[end..])?);
-
-                        Ok(content)
-                    } else {
-                        Ok(vec![OrgSectionContent::Text(text.into())])
-                    }
-                }
-                Err(err) => panic!(err),
-            }
-        }
-
         self.continue_until(|c| c != '\n');
 
         // TODO: Handle text effects + elements like date, links and images
         let text = self.sub_str(start_offset, self.offset)?;
-        let content = parse_section(text)?;
+        let content = parse_emphasis(text)?;
 
         self.next_if('\n');
 
