@@ -79,12 +79,42 @@ impl<'a> Parser<'a> {
             .ok_or_else(|| ParserError::SubStrOutOfRange { range: start..end }.into())
     }
 
-    fn parse_content(&mut self) -> Result<OrgContent> {
+    fn get_last_section(&mut self) -> &mut OrgSection {
+        let content = &mut self.document.content;
+
+        if let Some(i) = content.iter().enumerate().rev().find_map(|(i, content)| {
+            if let OrgContent::Section(_) = content {
+                Some(i)
+            } else {
+                None
+            }
+        }) {
+            if let OrgContent::Section(section) = &mut content[i] {
+                return section;
+            } else {
+                unreachable!();
+            }
+        } else {
+            content.push(OrgContent::Section(OrgSection::default()));
+            content
+                .last_mut()
+                .map(|c| {
+                    if let OrgContent::Section(section) = c {
+                        section
+                    } else {
+                        unreachable!()
+                    }
+                })
+                .unwrap()
+        }
+    }
+
+    fn parse_content(&mut self) -> Result<()> {
         let start_offset = self.offset;
         let prev_char = self.prev_char();
 
         if prev_char.is_some() && prev_char != Some('\n') {
-            panic!("aaa");
+            return Err(ParserError::BadStart.into());
         }
 
         // Headline stars
@@ -144,9 +174,11 @@ impl<'a> Parser<'a> {
                 self.continue_until(|c| c != '\n');
                 // Eat the newline
                 self.next_char().unwrap();
-                return Ok(OrgContent::Comment(
+                self.document.content.push(OrgContent::Comment(
                     self.sub_str(start_offset + 2, self.offset - 1)?.into(),
                 ));
+
+                return Ok(());
             }
             // Keyword start
             (Some('#'), Some('+')) => {
@@ -164,7 +196,11 @@ impl<'a> Parser<'a> {
                     // Eat the newline
                     self.next_char().unwrap();
 
-                    return Ok(OrgContent::Keyword(OrgKeyword { key, value }));
+                    self.document
+                        .content
+                        .push(OrgContent::Keyword(OrgKeyword { key, value }));
+
+                    return Ok(());
                 // It's not a keyword then :(
                 } else {
                     self.offset = start_offset;
@@ -173,11 +209,26 @@ impl<'a> Parser<'a> {
             _ => {}
         }
 
-        let content = self.parse_section_content(self.offset)?;
-        Ok(OrgContent::Section(OrgSection {
-            headline: self.headline.take(),
-            children: content,
-        }))
+        let mut content = self.parse_section_content(self.offset)?;
+
+        // Create a new section on new headline, otherwise append
+        if let Some(headline) = self.headline.take() {
+            self.document.content.push(OrgContent::Section(OrgSection {
+                headline: Some(headline),
+                children: content,
+            }));
+        } else {
+            let section = self.get_last_section();
+
+            // Add a newline if there is a newline in the section
+            if !section.children.is_empty() {
+                section.children.push(OrgSectionContent::Newline);
+            }
+
+            section.children.append(&mut content);
+        }
+
+        Ok(())
     }
 
     fn parse_section_content(&mut self, start_offset: usize) -> Result<Vec<OrgSectionContent>> {
@@ -252,8 +303,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse(mut self) -> Result<OrgDocument> {
         while self.offset < self.input_len {
-            let content = self.parse_content()?;
-            self.document.content.push(content);
+            self.parse_content()?;
         }
 
         Ok(self.document)
@@ -264,6 +314,8 @@ impl<'a> Parser<'a> {
 pub enum ParserError {
     #[error("substr out of range {:?}", range)]
     SubStrOutOfRange { range: Range<usize> },
+    #[error("org-mode parser did not start at column 0")]
+    BadStart,
 }
 
 #[cfg(test)]
@@ -368,6 +420,28 @@ mod tests {
                     ..Default::default()
                 })
             ]
+        )
+    }
+
+    #[test]
+    fn newline() {
+        let document = parse("** test\nhello\nthere").expect("comment test");
+
+        assert_eq!(
+            document.content,
+            vec![OrgContent::Section(OrgSection {
+                headline: Some(OrgHeadline {
+                    level: 2,
+                    content: vec![OrgSectionContent::Text("test".into())],
+                    ..OrgHeadline::default()
+                }),
+                children: vec![
+                    OrgSectionContent::Text("hello".into()),
+                    OrgSectionContent::Newline,
+                    OrgSectionContent::Text("there".into())
+                ],
+                ..Default::default()
+            })]
         )
     }
 }

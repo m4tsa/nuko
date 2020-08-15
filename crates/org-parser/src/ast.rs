@@ -37,6 +37,7 @@ pub enum OrgSectionContent {
     Verbatim(Vec<OrgSectionContent>),
     Code(Vec<OrgSectionContent>),
     Strikethrough(Vec<OrgSectionContent>),
+    Newline,
 }
 
 #[derive(Default, Debug, PartialEq)]
