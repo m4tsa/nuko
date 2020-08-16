@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 # Project crates
-config = { package = "nuko-config", path = "./crates/config" }
+nuko-core = { path = "./crates/core" }
 # Crates
 atty = "0.2"
 anyhow = "1.0"
@@ -21,6 +21,6 @@ name = "nuko"
 
 [workspace]
 members = [
-    "crates/config",
+    "crates/core",
     "crates/org-parser"
 ]

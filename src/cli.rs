@@ -6,7 +6,6 @@ use anyhow::Result;
 use clap::{
     crate_authors, crate_description, crate_version, App, AppSettings, Arg, ArgMatches, SubCommand,
 };
-use config::project::ProjectConfig;
 use std::path::{Path, PathBuf};
 
 pub fn create_cli() -> App<'static, 'static> {
@@ -61,7 +60,7 @@ pub fn create_cli() -> App<'static, 'static> {
 // Global config
 pub struct CliConfig {
     root_path: PathBuf,
-    project_config: ProjectConfig,
+    manifest_path: PathBuf,
 }
 
 impl CliConfig {
@@ -69,18 +68,16 @@ impl CliConfig {
         &self.root_path
     }
 
-    pub fn project_config(&self) -> &ProjectConfig {
-        &self.project_config
+    pub fn manifest_path(&self) -> &Path {
+        &self.manifest_path
     }
 }
 
 pub fn create_cli_config(matches: &ArgMatches) -> Result<CliConfig> {
     let (root_path, manifest_path) = find_root_dir(matches.value_of("root_dir").unwrap())?;
 
-    let project_config = ProjectConfig::read_file(&manifest_path)?;
-
     Ok(CliConfig {
         root_path,
-        project_config,
+        manifest_path,
     })
 }

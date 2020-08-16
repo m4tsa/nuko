@@ -1,7 +1,11 @@
 use crate::cli::CliConfig;
+use anyhow::Result;
+use nuko_core::{config::SiteConfig, site::Site};
 
-pub fn cmd_build(cli_config: CliConfig) {
-    let _root_path = cli_config.root_path();
+pub fn cmd_build(cli_config: CliConfig) -> Result<()> {
+    let site_config = SiteConfig::read_file(cli_config.manifest_path())?;
 
-    unimplemented!("build command");
+    let _site = Site::new(cli_config.root_path(), site_config)?;
+
+    Ok(())
 }

@@ -116,12 +116,12 @@ dependencies = [
  "atty",
  "clap",
  "lazy_static",
- "nuko-config",
+ "nuko-core",
  "thiserror",
 ]
 
 [[package]]
-name = "nuko-config"
+name = "nuko-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
