@@ -26,7 +26,7 @@ fn run_cli() -> Result<()> {
         ("build", Some(_sub_matches)) => {
             let cli_config = cli::create_cli_config(&matches)?;
 
-            cmd::cmd_build(cli_config);
+            cmd::cmd_build(cli_config)?;
         }
         ("init", Some(sub_matches)) => {
             cmd::cmd_init(sub_matches.value_of("path").unwrap());

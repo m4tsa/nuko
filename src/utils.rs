@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 use thiserror::Error;
 
 const MANIFEST_FILE_NAME: &'static str = "Nuko.toml";
@@ -9,7 +9,7 @@ pub fn find_root_dir(dir: &str) -> Result<(PathBuf, PathBuf)> {
     // Check paths upwards if we are looking at the relative path
     let can_check_upwards = dir == ".";
 
-    let path = PathBuf::from(dir);
+    let path = fs::canonicalize(PathBuf::from(dir))?;
 
     let manifest_path = path.join(MANIFEST_FILE_NAME);
 

@@ -5,6 +5,7 @@ use std::{fs, path::Path};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SiteSiteConfig {
     pub title: Option<String>,
+    pub theme: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
