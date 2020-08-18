@@ -23,10 +23,13 @@ fn run_cli() -> Result<()> {
     }
 
     match matches.subcommand() {
-        ("build", Some(_sub_matches)) => {
+        ("build", Some(sub_matches)) => {
             let cli_config = cli::create_cli_config(&matches)?;
+            let out_path = cli_config
+                .root_path()
+                .join(sub_matches.value_of("out_dir").unwrap());
 
-            cmd::cmd_build(cli_config)?;
+            cmd::cmd_build(cli_config, out_path)?;
         }
         ("init", Some(sub_matches)) => {
             cmd::cmd_init(sub_matches.value_of("path").unwrap());
