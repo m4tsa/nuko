@@ -3,6 +3,7 @@ use anyhow::Result;
 use glob::glob;
 use std::{
     collections::HashMap,
+    fs,
     path::{Path, PathBuf},
 };
 use tera::Tera;
@@ -64,6 +65,56 @@ impl Site {
 
         Ok(())
     }
+
+    pub fn build_scss(&mut self, path: &Path) -> Result<()> {
+        let scss_paths: Vec<PathBuf> = glob(&format!("{}/**/*.scss", path.to_string_lossy()))?
+            .filter_map(|p| p.ok())
+            .collect();
+
+        for scss_path in scss_paths {
+            if !scss_path.is_file() {
+                continue;
+            }
+
+            let stripped_path = scss_path.strip_prefix(path).unwrap();
+            let out_path = self.out_path.join(stripped_path).with_extension("css");
+
+            let css_output = sass_rs::compile_file(
+                &scss_path,
+                sass_rs::Options {
+                    output_style: sass_rs::OutputStyle::Compressed,
+                    indented_syntax: false,
+                    ..Default::default()
+                },
+            )
+            .map_err(|e| SiteError::Scss(scss_path.to_string_lossy().into(), e))?;
+
+            fs::write(out_path, css_output)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn build(&mut self) -> Result<()> {
+        // Delete the previous out path if exists
+        if self.out_path.exists() {
+            fs::remove_dir_all(&self.out_path)?;
+        }
+
+        // Create the out path
+        fs::create_dir_all(&self.out_path)?;
+
+        // Build the themes styles
+        if let Some(theme) = &self.site_config.site.theme {
+            let scss_path = self.root_path.join("themes").join(theme).join("scss");
+
+            if scss_path.is_dir() {
+                self.build_scss(&scss_path)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Error, Debug)]
@@ -72,4 +123,6 @@ pub enum SiteError {
     NonAbsoluteRoot,
     #[error("the site is missing the specified theme: \"{}\"", _0)]
     SiteIsMissingTheme(String),
+    #[error("error compiling scss at path \"{0}\": \n{1}")]
+    Scss(String, String),
 }

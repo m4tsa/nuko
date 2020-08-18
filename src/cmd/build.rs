@@ -10,5 +10,7 @@ pub fn cmd_build(cli_config: CliConfig, out_path: PathBuf) -> Result<()> {
 
     site.load_content()?;
 
+    site.build()?;
+
     Ok(())
 }
