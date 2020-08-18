@@ -11,7 +11,7 @@ mod console;
 fn main() {
     match run_cli() {
         Ok(()) => (),
-        Err(err) => panic!("{}", err),
+        Err(err) => panic!("{:?}", err),
     }
 }
 

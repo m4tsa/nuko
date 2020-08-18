@@ -23,7 +23,7 @@ impl Site {
             return Err(SiteError::NonAbsoluteRoot.into());
         }
 
-        let tera = if let Some(theme) = &site_config.site.theme {
+        let mut tera = if let Some(theme) = &site_config.site.theme {
             let theme_path = root_path.join("themes").join(theme);
 
             if !theme_path.is_dir() {
@@ -37,6 +37,8 @@ impl Site {
         } else {
             unimplemented!("builtin theme");
         };
+
+        tera.build_inheritance_chains()?;
 
         Ok(Site {
             root_path: root_path.into(),
@@ -113,7 +115,24 @@ impl Site {
             }
         }
 
+        let mut tera_context = tera::Context::new();
+
+        tera_context.insert("site_config", &self.site_config);
+
+        self.render_404(&tera_context)?;
+
         Ok(())
+    }
+
+    pub fn render_404(&mut self, context: &tera::Context) -> Result<()> {
+        let contents = self.render_template("404.html", context)?;
+        fs::write(self.out_path.join("404.html"), contents)?;
+
+        Ok(())
+    }
+
+    fn render_template(&mut self, name: &str, context: &tera::Context) -> Result<String> {
+        self.tera.render(name, context).map_err(|e| e.into())
     }
 }
 
@@ -125,4 +144,6 @@ pub enum SiteError {
     SiteIsMissingTheme(String),
     #[error("error compiling scss at path \"{0}\": \n{1}")]
     Scss(String, String),
+    #[error("error compiling tera template at path \"{0}\": \n{1}")]
+    Tera(String, String),
 }
