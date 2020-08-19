@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
+fs_extra = "1.1.0"
 glob = "0.3.0"
 nuko-org-parser = { path = "../org-parser" }
 toml = "0.5"

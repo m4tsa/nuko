@@ -1,4 +1,4 @@
-use crate::config::SiteConfig;
+use crate::{config::SiteConfig, org_emitter::emit_document};
 use anyhow::Result;
 use nuko_org_parser::{ast::OrgDocument, parser::Parser};
 use serde_derive::Serialize;
@@ -10,6 +10,8 @@ use std::{
 #[derive(Serialize)]
 pub struct Page {
     document: OrgDocument,
+    title: Option<String>,
+    description: Option<String>,
     page_path: PathBuf,
 }
 
@@ -17,8 +19,13 @@ impl Page {
     pub fn parse(page_path: PathBuf, text: String, _config: &SiteConfig) -> Result<Page> {
         let document = Parser::new(&text).parse()?;
 
+        let title = document.get_keyword("TITLE").map(|t| t.to_string());
+        let description = document.get_keyword("DESCRIPTION").map(|t| t.to_string());
+
         Ok(Page {
             document,
+            title,
+            description,
             page_path,
         })
     }
@@ -47,6 +54,10 @@ impl Page {
         };
 
         Page::parse(page_path, text, config)
+    }
+
+    pub fn render_html(&self) -> Result<String> {
+        emit_document(&self.document)
     }
 
     pub fn document(&self) -> &OrgDocument {

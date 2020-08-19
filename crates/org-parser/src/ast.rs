@@ -45,3 +45,17 @@ pub enum OrgSectionContent {
 pub struct OrgDocument {
     pub content: Vec<OrgContent>,
 }
+
+impl OrgDocument {
+    pub fn get_keyword(&self, key: &str) -> Option<&SmolStr> {
+        for content in &self.content {
+            if let OrgContent::Keyword(keyword) = content {
+                if keyword.key == key {
+                    return Some(&keyword.value);
+                }
+            }
+        }
+
+        None
+    }
+}

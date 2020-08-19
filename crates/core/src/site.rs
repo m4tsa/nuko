@@ -128,6 +128,7 @@ impl Site {
         tera_context.insert("site_config", &self.site_config);
 
         self.render_404(&tera_context)?;
+        self.merge_static()?;
 
         Ok(())
     }
@@ -144,6 +145,7 @@ impl Site {
 
         tera_context.insert("site_config", &self.site_config);
         tera_context.insert("page", &page);
+        tera_context.insert("document", &page.render_html()?);
 
         let contents = self.render_template("page.html", &tera_context)?;
 
@@ -157,6 +159,30 @@ impl Site {
 
     fn render_template(&self, name: &str, context: &tera::Context) -> Result<String> {
         self.tera.render(name, context).map_err(|e| e.into())
+    }
+
+    fn merge_static(&self) -> Result<()> {
+        if let Some(theme) = &self.site_config.site.theme {
+            let static_dir = self.root_path.join("themes").join(theme).join("static");
+
+            if static_dir.is_dir() {
+                let out = self.out_path.join("static");
+
+                fs_extra::copy_items(
+                    &vec![&static_dir],
+                    &out,
+                    &fs_extra::dir::CopyOptions {
+                        overwrite: false,
+                        skip_exist: false,
+                        buffer_size: 64 * 1024,
+                        depth: 0,
+                        copy_inside: true,
+                    },
+                )?;
+            }
+        }
+
+        Ok(())
     }
 }
 
