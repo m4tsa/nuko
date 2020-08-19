@@ -2,10 +2,16 @@ use anyhow::Result;
 use serde_derive::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
+fn default_title_sep() -> char {
+    '|'
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SiteSiteConfig {
     pub title: Option<String>,
     pub theme: Option<String>,
+    #[serde(default = "default_title_sep")]
+    pub title_seperator: char,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
