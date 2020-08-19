@@ -1,12 +1,13 @@
+use serde_derive::Serialize;
 use smol_str::SmolStr;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Serialize, Default, PartialEq)]
 pub struct OrgSection {
     pub headline: Option<OrgHeadline>,
     pub children: Vec<OrgSectionContent>,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Serialize, Default, PartialEq)]
 pub struct OrgHeadline {
     pub level: u8,
     pub keyword: Option<SmolStr>,
@@ -15,20 +16,20 @@ pub struct OrgHeadline {
     pub tags: Option<Vec<SmolStr>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Serialize, PartialEq)]
 pub struct OrgKeyword {
     pub key: SmolStr,
     pub value: SmolStr,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Serialize, PartialEq)]
 pub enum OrgContent {
     Comment(String),
     Section(OrgSection),
     Keyword(OrgKeyword),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Serialize, PartialEq)]
 pub enum OrgSectionContent {
     Text(String),
     Bold(Vec<OrgSectionContent>),
@@ -40,7 +41,7 @@ pub enum OrgSectionContent {
     Newline,
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, Serialize, PartialEq)]
 pub struct OrgDocument {
     pub content: Vec<OrgContent>,
 }

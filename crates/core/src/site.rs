@@ -14,7 +14,7 @@ pub struct Site {
     out_path: PathBuf,
     root_path: PathBuf,
     tera: Tera,
-    pages: HashMap<String, Page>,
+    pages: HashMap<PathBuf, Page>,
 }
 
 impl Site {
@@ -52,7 +52,7 @@ impl Site {
     pub fn load_content(&mut self) -> Result<()> {
         let content_dir = self.root_path.join("content");
 
-        let content: Vec<PathBuf> = glob(&format!("{}/**/*.org", content_dir.to_string_lossy()))?
+        let pages: Vec<Page> = glob(&format!("{}/**/*.org", content_dir.to_string_lossy()))?
             .filter_map(|p| p.ok())
             .filter(|e| {
                 !e.as_path()
@@ -61,9 +61,12 @@ impl Site {
                     .to_string_lossy()
                     .starts_with('.')
             })
-            .collect();
+            .map(|page_path| Page::read_file(&self.root_path, page_path, &self.site_config))
+            .collect::<Result<Vec<Page>>>()?;
 
-        println!("{:?}", content);
+        for page in pages {
+            self.pages.insert(page.page_path().into(), page);
+        }
 
         Ok(())
     }
@@ -115,8 +118,13 @@ impl Site {
             }
         }
 
-        let mut tera_context = tera::Context::new();
+        // Render pages
+        for (_, page) in &self.pages {
+            self.render_page(page)?;
+        }
 
+        // Render extras
+        let mut tera_context = tera::Context::new();
         tera_context.insert("site_config", &self.site_config);
 
         self.render_404(&tera_context)?;
@@ -131,7 +139,23 @@ impl Site {
         Ok(())
     }
 
-    fn render_template(&mut self, name: &str, context: &tera::Context) -> Result<String> {
+    pub fn render_page(&self, page: &Page) -> Result<()> {
+        let mut tera_context = tera::Context::new();
+
+        tera_context.insert("site_config", &self.site_config);
+        tera_context.insert("page", &page);
+
+        let contents = self.render_template("page.html", &tera_context)?;
+
+        let out_path = self.out_path.join(page.page_path().strip_prefix("/")?);
+
+        fs::create_dir_all(&out_path)?;
+        fs::write(out_path.join("index.html"), contents)?;
+
+        Ok(())
+    }
+
+    fn render_template(&self, name: &str, context: &tera::Context) -> Result<String> {
         self.tera.render(name, context).map_err(|e| e.into())
     }
 }

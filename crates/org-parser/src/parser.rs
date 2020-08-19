@@ -105,6 +105,10 @@ impl<'a> Parser<'a> {
     }
 
     fn peek_char_offset(&self, offset: usize) -> Option<char> {
+        if self.offset + offset > self.input_len {
+            return None;
+        }
+
         self.input[self.offset + offset..].chars().next()
     }
 

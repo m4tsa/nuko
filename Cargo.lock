@@ -340,6 +340,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glob",
+ "nuko-org-parser",
  "sass-rs",
  "serde",
  "serde_derive",
@@ -355,6 +356,8 @@ dependencies = [
  "anyhow",
  "fancy-regex",
  "lazy_static",
+ "serde",
+ "serde_derive",
  "smol_str",
  "thiserror",
 ]
@@ -632,6 +635,9 @@ name = "smol_str"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f7909a1d8bc166a862124d84fdc11bda0ea4ed3157ccca662296919c2972db1"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "strsim"
