@@ -17,10 +17,11 @@ pub struct Parser<'a> {
 lazy_static! {
     pub static ref EMPHASIS_REGEX: FancyRegex =
         FancyRegex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
-    pub static ref LINK_REGEX: Regex = Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]").unwrap();
+    pub static ref EXTRAS_REGEX: Regex =
+        Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]|\[fn:(|.+?):(.+?)\]").unwrap();
 }
 
-fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
+fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
     if text.is_empty() {
         return Ok(Vec::with_capacity(0));
     }
@@ -47,7 +48,7 @@ fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
                     content.push(OrgSectionContent::Text(text[..start].into()));
                 }
 
-                if let Some(captures) = LINK_REGEX.captures(text) {
+                if let Some(captures) = EXTRAS_REGEX.captures(text) {
                     let capture = captures.get(0).unwrap();
 
                     if capture.start() < start {
@@ -57,24 +58,38 @@ fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
                             content.push(OrgSectionContent::Text(text[..capture.start()].into()));
                         }
 
-                        let (link, label) = (
-                            captures.get(1).unwrap().as_str(),
-                            captures.get(2).unwrap().as_str(),
-                        );
+                        if let (Some(link), Some(label)) = (
+                            captures.get(1).map(|m| m.as_str()),
+                            captures.get(2).map(|m| m.as_str()),
+                        ) {
+                            content.push(OrgSectionContent::Link {
+                                link: link.into(),
+                                label: parse_content(label)?,
+                            });
+                        } else if let (Some(fn_name), Some(fn_content)) = (
+                            captures.get(3).map(|m| m.as_str()),
+                            captures.get(4).map(|m| m.as_str()),
+                        ) {
+                            content.push(OrgSectionContent::Footnote {
+                                name: if fn_name.is_empty() {
+                                    None
+                                } else {
+                                    Some(fn_name.into())
+                                },
+                                content: parse_content(fn_content)?,
+                            });
+                        } else {
+                            unreachable!();
+                        }
 
-                        content.push(OrgSectionContent::Link {
-                            link: link.into(),
-                            label: parse_emphasis(label)?,
-                        });
-
-                        content.append(&mut parse_emphasis(&text[capture.end()..])?);
+                        content.append(&mut parse_content(&text[capture.end()..])?);
 
                         return Ok(content);
                     }
                 }
 
                 let emphasis_ty = captures.get(1).unwrap().as_str();
-                let inner = parse_emphasis(captures.get(2).unwrap().as_str())?;
+                let inner = parse_content(captures.get(2).unwrap().as_str())?;
 
                 let section_content = match emphasis_ty {
                     "*" => OrgSectionContent::Bold(inner),
@@ -88,11 +103,11 @@ fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
 
                 content.push(section_content);
 
-                content.append(&mut parse_emphasis(&text[end..])?);
+                content.append(&mut parse_content(&text[end..])?);
 
                 Ok(content)
             } else {
-                if let Some(captures) = LINK_REGEX.captures(text) {
+                if let Some(captures) = EXTRAS_REGEX.captures(text) {
                     let capture = captures.get(0).unwrap();
                     let mut content = Vec::new();
 
@@ -100,17 +115,31 @@ fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
                         content.push(OrgSectionContent::Text(text[..capture.start()].into()));
                     }
 
-                    let (link, label) = (
-                        captures.get(1).unwrap().as_str(),
-                        captures.get(2).unwrap().as_str(),
-                    );
+                    if let (Some(link), Some(label)) = (
+                        captures.get(1).map(|m| m.as_str()),
+                        captures.get(2).map(|m| m.as_str()),
+                    ) {
+                        content.push(OrgSectionContent::Link {
+                            link: link.into(),
+                            label: parse_content(label)?,
+                        });
+                    } else if let (Some(fn_name), Some(fn_content)) = (
+                        captures.get(3).map(|m| m.as_str()),
+                        captures.get(4).map(|m| m.as_str()),
+                    ) {
+                        content.push(OrgSectionContent::Footnote {
+                            name: if fn_name.is_empty() {
+                                None
+                            } else {
+                                Some(fn_name.into())
+                            },
+                            content: parse_content(fn_content)?,
+                        });
+                    } else {
+                        unreachable!();
+                    }
 
-                    content.push(OrgSectionContent::Link {
-                        link: link.into(),
-                        label: parse_emphasis(label)?,
-                    });
-
-                    content.append(&mut parse_emphasis(&text[capture.end()..])?);
+                    content.append(&mut parse_content(&text[capture.end()..])?);
 
                     return Ok(content);
                 }
@@ -349,7 +378,7 @@ impl<'a> Parser<'a> {
 
         // TODO: Handle text effects + elements like date, links and images
         let text = self.sub_str(start_offset, self.offset)?;
-        let content = parse_emphasis(text)?;
+        let content = parse_content(text)?;
 
         self.next_if('\n');
 

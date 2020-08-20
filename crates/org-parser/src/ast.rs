@@ -29,7 +29,7 @@ pub enum OrgContent {
     Keyword(OrgKeyword),
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum OrgSectionContent {
     Text(String),
     Bold(Vec<OrgSectionContent>),
@@ -38,6 +38,10 @@ pub enum OrgSectionContent {
     Verbatim(Vec<OrgSectionContent>),
     Code(Vec<OrgSectionContent>),
     Strikethrough(Vec<OrgSectionContent>),
+    Footnote {
+        name: Option<String>,
+        content: Vec<OrgSectionContent>,
+    },
     Link {
         link: String,
         label: Vec<OrgSectionContent>,
