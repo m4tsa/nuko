@@ -363,6 +363,7 @@ dependencies = [
  "anyhow",
  "fancy-regex",
  "lazy_static",
+ "regex",
  "serde",
  "serde_derive",
  "smol_str",

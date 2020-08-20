@@ -38,6 +38,10 @@ pub enum OrgSectionContent {
     Verbatim(Vec<OrgSectionContent>),
     Code(Vec<OrgSectionContent>),
     Strikethrough(Vec<OrgSectionContent>),
+    Link {
+        link: String,
+        label: Vec<OrgSectionContent>,
+    },
     Newline,
 }
 

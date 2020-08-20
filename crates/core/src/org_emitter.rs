@@ -35,6 +35,11 @@ fn emit_section_content(out: &mut String, content: &[OrgSectionContent], paragra
                 emit_section_content(out, content, false);
                 out.push_str("</s>");
             }
+            OrgSectionContent::Link { link, label } => {
+                out.push_str(&format!("<a href=\"{}\">", link));
+                emit_section_content(out, label, false);
+                out.push_str("</a>");
+            }
             OrgSectionContent::Newline => out.push_str("</p><p>"),
         }
     }

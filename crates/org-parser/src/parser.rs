@@ -1,7 +1,8 @@
 use crate::ast::*;
 use anyhow::Result;
-use fancy_regex::Regex;
+use fancy_regex::Regex as FancyRegex;
 use lazy_static::lazy_static;
+use regex::Regex;
 use std::ops::Range;
 use thiserror::Error;
 
@@ -14,8 +15,9 @@ pub struct Parser<'a> {
 }
 
 lazy_static! {
-    pub static ref EMPHASIS_REGEX: Regex =
-        Regex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
+    pub static ref EMPHASIS_REGEX: FancyRegex =
+        FancyRegex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
+    pub static ref LINK_REGEX: Regex = Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]").unwrap();
 }
 
 fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
@@ -45,6 +47,32 @@ fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
                     content.push(OrgSectionContent::Text(text[..start].into()));
                 }
 
+                if let Some(captures) = LINK_REGEX.captures(text) {
+                    let capture = captures.get(0).unwrap();
+
+                    if capture.start() < start {
+                        let mut content = Vec::new();
+
+                        if capture.start() > 0 {
+                            content.push(OrgSectionContent::Text(text[..capture.start()].into()));
+                        }
+
+                        let (link, label) = (
+                            captures.get(1).unwrap().as_str(),
+                            captures.get(2).unwrap().as_str(),
+                        );
+
+                        content.push(OrgSectionContent::Link {
+                            link: link.into(),
+                            label: parse_emphasis(label)?,
+                        });
+
+                        content.append(&mut parse_emphasis(&text[capture.end()..])?);
+
+                        return Ok(content);
+                    }
+                }
+
                 let emphasis_ty = captures.get(1).unwrap().as_str();
                 let inner = parse_emphasis(captures.get(2).unwrap().as_str())?;
 
@@ -64,6 +92,29 @@ fn parse_emphasis(text: &str) -> Result<Vec<OrgSectionContent>> {
 
                 Ok(content)
             } else {
+                if let Some(captures) = LINK_REGEX.captures(text) {
+                    let capture = captures.get(0).unwrap();
+                    let mut content = Vec::new();
+
+                    if capture.start() > 0 {
+                        content.push(OrgSectionContent::Text(text[..capture.start()].into()));
+                    }
+
+                    let (link, label) = (
+                        captures.get(1).unwrap().as_str(),
+                        captures.get(2).unwrap().as_str(),
+                    );
+
+                    content.push(OrgSectionContent::Link {
+                        link: link.into(),
+                        label: parse_emphasis(label)?,
+                    });
+
+                    content.append(&mut parse_emphasis(&text[capture.end()..])?);
+
+                    return Ok(content);
+                }
+
                 Ok(vec![OrgSectionContent::Text(text.into())])
             }
         }
@@ -351,7 +402,7 @@ mod tests {
 
     #[test]
     fn emphasis() {
-        let document = parse("hello *there* /nice +day+ today/").expect("comment test");
+        let document = parse("hello *there* /nice +day+ today/").expect("emphasis test");
 
         assert_eq!(
             document.content,
@@ -376,7 +427,7 @@ mod tests {
 
     #[test]
     fn headline() {
-        let document = parse("* test\nhello").expect("comment test");
+        let document = parse("* test\nhello").expect("headline test");
 
         assert_eq!(
             document.content,
@@ -391,7 +442,7 @@ mod tests {
             })]
         );
 
-        let document = parse("* TODO test\nhello").expect("comment test");
+        let document = parse("* TODO test\nhello").expect("headline test");
 
         assert_eq!(
             document.content,
@@ -410,7 +461,7 @@ mod tests {
 
     #[test]
     fn keyword() {
-        let document = parse("#+TITLE: test\nhello").expect("comment test");
+        let document = parse("#+TITLE: test\nhello").expect("keyword test");
 
         assert_eq!(
             document.content,
@@ -428,8 +479,24 @@ mod tests {
     }
 
     #[test]
+    fn links() {
+        let document = parse("[[https://example.com][example]]").expect("links test");
+
+        assert_eq!(
+            document.content,
+            vec![OrgContent::Section(OrgSection {
+                headline: None,
+                children: vec![OrgSectionContent::Link {
+                    link: "https://example.com".into(),
+                    label: vec![OrgSectionContent::Text("example".into())]
+                }]
+            })]
+        )
+    }
+
+    #[test]
     fn newline() {
-        let document = parse("** test\nhello\nthere").expect("comment test");
+        let document = parse("** test\nhello\nthere").expect("newline test");
 
         assert_eq!(
             document.content,
