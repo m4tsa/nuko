@@ -10,6 +10,7 @@ fn default_title_sep() -> char {
 pub struct SiteSiteConfig {
     pub title: Option<String>,
     pub theme: Option<String>,
+    pub base_url: String,
     #[serde(default = "default_title_sep")]
     pub title_seperator: char,
 }

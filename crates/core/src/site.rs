@@ -1,4 +1,4 @@
-use crate::{config::SiteConfig, page::Page};
+use crate::{config::SiteConfig, page::Page, sitemap::Sitemap};
 use anyhow::Result;
 use glob::glob;
 use std::{
@@ -15,6 +15,7 @@ pub struct Site {
     root_path: PathBuf,
     tera: Tera,
     pages: HashMap<PathBuf, Page>,
+    sitemap: Sitemap,
 }
 
 impl Site {
@@ -30,10 +31,23 @@ impl Site {
                 return Err(SiteError::SiteIsMissingTheme(theme.into()).into());
             }
 
-            Tera::parse(&format!(
+            let mut tera = Tera::parse(&format!(
                 "{}/templates/**/**.html",
                 theme_path.to_string_lossy()
-            ))?
+            ))?;
+
+            let robots_path = theme_path.join("templates").join("robots.txt");
+            let sitemap_path = theme_path.join("templates").join("sitemap.xml");
+
+            if robots_path.is_file() {
+                tera.add_template_file(robots_path, Some("robots.txt"))?;
+            }
+
+            if sitemap_path.is_file() {
+                tera.add_template_file(sitemap_path, Some("sitemap.xml"))?;
+            }
+
+            tera
         } else {
             unimplemented!("builtin theme");
         };
@@ -44,6 +58,7 @@ impl Site {
             root_path: root_path.into(),
             out_path,
             site_config,
+            sitemap: Sitemap::default(),
             tera,
             pages: HashMap::new(),
         })
@@ -65,6 +80,7 @@ impl Site {
             .collect::<Result<Vec<Page>>>()?;
 
         for page in pages {
+            self.sitemap.add_page(&self.site_config, &page)?;
             self.pages.insert(page.page_path().into(), page);
         }
 
@@ -126,8 +142,11 @@ impl Site {
         // Render extras
         let mut tera_context = tera::Context::new();
         tera_context.insert("site_config", &self.site_config);
+        tera_context.insert("sitemap", &self.sitemap);
 
         self.render_404(&tera_context)?;
+        self.render_robots(&tera_context)?;
+        self.render_sitemap(&tera_context)?;
         self.merge_static()?;
 
         Ok(())
@@ -136,6 +155,20 @@ impl Site {
     pub fn render_404(&mut self, context: &tera::Context) -> Result<()> {
         let contents = self.render_template("404.html", context)?;
         fs::write(self.out_path.join("404.html"), contents)?;
+
+        Ok(())
+    }
+
+    pub fn render_robots(&mut self, context: &tera::Context) -> Result<()> {
+        let contents = self.render_template("robots.txt", context)?;
+        fs::write(self.out_path.join("robots.txt"), contents)?;
+
+        Ok(())
+    }
+
+    pub fn render_sitemap(&mut self, context: &tera::Context) -> Result<()> {
+        let contents = self.render_template("sitemap.xml", context)?;
+        fs::write(self.out_path.join("sitemap.xml"), contents)?;
 
         Ok(())
     }

@@ -424,6 +424,10 @@ impl<'a> Parser<'a> {
         let section = self.get_last_section();
         let mut content = parse_content(Some(section), &text)?;
 
+        if !section.children.is_empty() {
+            section.children.push(OrgSectionContent::Newline);
+        }
+
         // Create a new section on new headline, otherwise append
         section.children.append(&mut content);
 
