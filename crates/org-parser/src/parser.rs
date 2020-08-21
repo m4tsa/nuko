@@ -18,7 +18,7 @@ lazy_static! {
     pub static ref EMPHASIS_REGEX: FancyRegex =
         FancyRegex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
     pub static ref EXTRAS_REGEX: Regex =
-        Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]|\[fn:(|.+?)?:(.+?)(?:[^\]])\](?:(?:[^\[\]])|$)").unwrap();
+        Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]|\[fn:(|.+?)?:(.+?)(?:[^\]])\]((?:[^\[\]])|$)").unwrap();
 }
 
 fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
@@ -54,6 +54,8 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                     if capture.start() < start {
                         let mut content = Vec::new();
 
+                        let mut end = capture.end();
+
                         if capture.start() > 0 {
                             content.push(OrgSectionContent::Text(text[..capture.start()].into()));
                         }
@@ -66,9 +68,10 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                                 link: link.into(),
                                 label: parse_content(label)?,
                             });
-                        } else if let (Some(fn_name), Some(fn_content)) = (
+                        } else if let (Some(fn_name), Some(fn_content), Some(fn_extra)) = (
                             captures.get(3).map(|m| m.as_str()),
                             captures.get(4).map(|m| m.as_str()),
+                            captures.get(5).map(|m| m.as_str()),
                         ) {
                             content.push(OrgSectionContent::Footnote {
                                 name: if fn_name.is_empty() {
@@ -78,11 +81,13 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                                 },
                                 content: parse_content(fn_content)?,
                             });
+
+                            end -= fn_extra.len();
                         } else {
                             unreachable!();
                         }
 
-                        content.append(&mut parse_content(&text[capture.end()..])?);
+                        content.append(&mut parse_content(&text[end..])?);
 
                         return Ok(content);
                     }
@@ -111,8 +116,10 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                     let capture = captures.get(0).unwrap();
                     let mut content = Vec::new();
 
+                    let (start, mut end) = (capture.start(), capture.end());
+
                     if capture.start() > 0 {
-                        content.push(OrgSectionContent::Text(text[..capture.start()].into()));
+                        content.push(OrgSectionContent::Text(text[..start].into()));
                     }
 
                     if let (Some(link), Some(label)) = (
@@ -123,9 +130,10 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                             link: link.into(),
                             label: parse_content(label)?,
                         });
-                    } else if let (Some(fn_name), Some(fn_content)) = (
+                    } else if let (Some(fn_name), Some(fn_content), Some(fn_extra)) = (
                         captures.get(3).map(|m| m.as_str()),
                         captures.get(4).map(|m| m.as_str()),
+                        captures.get(5).map(|m| m.as_str()),
                     ) {
                         content.push(OrgSectionContent::Footnote {
                             name: if fn_name.is_empty() {
@@ -135,11 +143,13 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                             },
                             content: parse_content(fn_content)?,
                         });
+
+                        end -= fn_extra.len();
                     } else {
                         unreachable!();
                     }
 
-                    content.append(&mut parse_content(&text[capture.end()..])?);
+                    content.append(&mut parse_content(&text[end..])?);
 
                     return Ok(content);
                 }
