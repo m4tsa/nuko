@@ -64,6 +64,10 @@ impl Site {
         })
     }
 
+    pub fn set_baseurl(&mut self, base_url: &str) {
+        self.site_config.site.base_url = base_url.into();
+    }
+
     pub fn load_content(&mut self) -> Result<()> {
         let content_dir = self.root_path.join("content");
 
@@ -176,7 +180,7 @@ impl Site {
     pub fn render_page(&self, page: &Page) -> Result<()> {
         let mut tera_context = tera::Context::new();
 
-        let (toc, html) = page.render_html()?;
+        let (toc, html) = page.render_html(&self.site_config.site.base_url)?;
 
         tera_context.insert("site_config", &self.site_config);
         tera_context.insert("page", &page);

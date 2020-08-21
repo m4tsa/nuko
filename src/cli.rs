@@ -36,6 +36,12 @@ pub fn create_cli() -> App<'static, 'static> {
                 .default_value(".")
                 .help("Directory to use as project root dir for the command"),
         )
+        .arg(
+            Arg::with_name("base_url")
+                .long("base-url")
+                .takes_value(true)
+                .help("Overrides the base url for the output"),
+        )
         .subcommands(vec![
             SubCommand::with_name("init")
                 .about("Create a new nuko site project")
@@ -59,11 +65,16 @@ pub fn create_cli() -> App<'static, 'static> {
 
 // Global config
 pub struct CliConfig {
+    base_url: Option<String>,
     root_path: PathBuf,
     manifest_path: PathBuf,
 }
 
 impl CliConfig {
+    pub fn base_url(&self) -> &Option<String> {
+        &self.base_url
+    }
+
     pub fn root_path(&self) -> &Path {
         &self.root_path
     }
@@ -74,9 +85,12 @@ impl CliConfig {
 }
 
 pub fn create_cli_config(matches: &ArgMatches) -> Result<CliConfig> {
+    let base_url = matches.value_of("base_url").map(|s| s.into());
+
     let (root_path, manifest_path) = find_root_dir(matches.value_of("root_dir").unwrap())?;
 
     Ok(CliConfig {
+        base_url,
         root_path,
         manifest_path,
     })

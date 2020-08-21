@@ -56,8 +56,8 @@ impl Page {
         Page::parse(page_path, text, config)
     }
 
-    pub fn render_html(&self) -> Result<(Toc, String)> {
-        emit_document(&self.document)
+    pub fn render_html(&self, base_url: &str) -> Result<(Toc, String)> {
+        emit_document(&self.document, base_url)
     }
 
     pub fn document(&self) -> &OrgDocument {

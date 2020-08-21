@@ -12,6 +12,7 @@ pub struct EmitData {
 
 fn emit_section_content(
     out: &mut String,
+    base_url: &str,
     data: &mut Option<&mut EmitData>,
     content: &[OrgSectionContent],
     paragraph: bool,
@@ -25,17 +26,17 @@ fn emit_section_content(
             OrgSectionContent::Text(s) => out.push_str(s),
             OrgSectionContent::Bold(content) => {
                 out.push_str("<b>");
-                emit_section_content(out, data, content, false);
+                emit_section_content(out, base_url, data, content, false);
                 out.push_str("</b>");
             }
             OrgSectionContent::Italic(content) => {
                 out.push_str("<i>");
-                emit_section_content(out, data, content, false);
+                emit_section_content(out, base_url, data, content, false);
                 out.push_str("</i>");
             }
             OrgSectionContent::Underlined(content) => {
                 out.push_str("<u>");
-                emit_section_content(out, data, content, false);
+                emit_section_content(out, base_url, data, content, false);
                 out.push_str("</u>");
             }
             OrgSectionContent::Verbatim(_content) => {
@@ -46,12 +47,18 @@ fn emit_section_content(
             }
             OrgSectionContent::Strikethrough(content) => {
                 out.push_str("<s>");
-                emit_section_content(out, data, content, false);
+                emit_section_content(out, base_url, data, content, false);
                 out.push_str("</s>");
             }
             OrgSectionContent::Link { link, label } => {
+                let link = if link.starts_with("/") {
+                    format!("{}{}", base_url, link)
+                } else {
+                    link.into()
+                };
+
                 out.push_str(&format!("<a href=\"{}\">", link));
-                emit_section_content(out, data, label, false);
+                emit_section_content(out, base_url, data, label, false);
                 out.push_str("</a>");
             }
             OrgSectionContent::Footnote { name, content } => {
@@ -78,7 +85,7 @@ fn emit_section_content(
                     out.push_str("<li>");
                     match value {
                         OrgListValue::Content(content) => {
-                            emit_section_content(out, data, &content, false)
+                            emit_section_content(out, base_url, data, &content, false)
                         }
                         OrgListValue::SubList(_) => unimplemented!("org list sublists"),
                     }
@@ -115,7 +122,7 @@ fn content_to_str(out: &mut String, content: &[OrgSectionContent]) {
     }
 }
 
-fn emit_section(out: &mut String, data: &mut EmitData, section: &OrgSection) {
+fn emit_section(out: &mut String, base_url: &str, data: &mut EmitData, section: &OrgSection) {
     if let Some(headline) = &section.headline {
         let mut title = String::new();
         content_to_str(&mut title, &headline.content);
@@ -130,17 +137,17 @@ fn emit_section(out: &mut String, data: &mut EmitData, section: &OrgSection) {
             out.push_str("<span class=todo>TODO</span> ");
         }
 
-        emit_section_content(out, &mut Some(data), &headline.content, false);
+        emit_section_content(out, base_url, &mut Some(data), &headline.content, false);
 
         out.push_str(&format!("</a></h{}>", headline.level));
     }
 
     if !section.children.is_empty() {
-        emit_section_content(out, &mut Some(data), &section.children, true);
+        emit_section_content(out, base_url, &mut Some(data), &section.children, true);
     }
 }
 
-pub fn emit_document(document: &OrgDocument) -> Result<(Toc, String)> {
+pub fn emit_document(document: &OrgDocument, base_url: &str) -> Result<(Toc, String)> {
     let mut out = String::with_capacity(1024);
 
     let mut data = EmitData::default();
@@ -149,7 +156,7 @@ pub fn emit_document(document: &OrgDocument) -> Result<(Toc, String)> {
         match content {
             OrgContent::Keyword(_) => {}
             OrgContent::Comment(_) => {}
-            OrgContent::Section(section) => emit_section(&mut out, &mut data, section),
+            OrgContent::Section(section) => emit_section(&mut out, base_url, &mut data, section),
         }
     }
 
@@ -161,7 +168,7 @@ pub fn emit_document(document: &OrgDocument) -> Result<(Toc, String)> {
 
             out.push_str(&format!("<li id=fn{}><p>", fn_id));
 
-            emit_section_content(&mut out, &mut None, footnote, false);
+            emit_section_content(&mut out, base_url, &mut None, footnote, false);
 
             out.push_str(&format!("  <a href=#fns{}>↵</a></p></li>", fn_id));
         }
