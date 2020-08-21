@@ -128,7 +128,7 @@ pub fn emit_document(document: &OrgDocument) -> Result<(Toc, String)> {
     }
 
     if !data.footnotes.is_empty() {
-        out.push_str("<section id=footnotes><hr><ol>");
+        out.push_str("<hr><section id=footnotes><h2>Footnotes</h2><ol>");
 
         for (i, footnote) in data.footnotes.iter().enumerate() {
             let fn_id = i + 1;
