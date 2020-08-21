@@ -42,11 +42,29 @@ pub enum OrgSectionContent {
         name: Option<String>,
         content: Vec<OrgSectionContent>,
     },
+    List(OrgListEntry),
     Link {
         link: String,
         label: Vec<OrgSectionContent>,
     },
     Newline,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct OrgListEntry {
+    pub ty: OrgListType,
+    pub values: Vec<OrgListValue>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum OrgListType {
+    Bullet,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum OrgListValue {
+    Content(Vec<OrgSectionContent>),
+    SubList(Box<OrgListEntry>),
 }
 
 #[derive(Default, Debug, Serialize, PartialEq)]

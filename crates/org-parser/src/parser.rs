@@ -6,6 +6,9 @@ use regex::Regex;
 use std::ops::Range;
 use thiserror::Error;
 
+// TODO: Clean everything up, this was written by looking at the org syntax page with no plans at all.
+// TODO: Remove duplicated code
+
 pub struct Parser<'a> {
     input: &'a str,
     input_len: usize,
@@ -18,12 +21,49 @@ lazy_static! {
     pub static ref EMPHASIS_REGEX: FancyRegex =
         FancyRegex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
     pub static ref EXTRAS_REGEX: Regex =
-        Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]|\[fn:(|.+?)?:(.+?)(?:[^\]])\]((?:[^\[\]])|$)").unwrap();
+        Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]|\[fn:(|.+?)?:(.+?[^\]])\]((?:[^\[\]])|$)").unwrap();
 }
 
-fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
+fn parse_content(
+    mut section: Option<&mut OrgSection>,
+    text: &str,
+) -> Result<Vec<OrgSectionContent>> {
     if text.is_empty() {
         return Ok(Vec::with_capacity(0));
+    }
+
+    // Check if the line starts with an unordered list
+    if let Some(list_start) = text.find("- ") {
+        let start_text = &text[..list_start];
+
+        if start_text.chars().all(|f| f.is_ascii_whitespace()) {
+            let list_text = &text[(list_start + 2)..];
+
+            // TODO: Support new list types
+            let list_ty = OrgListType::Bullet;
+
+            let list_entry_content = parse_content(section.as_deref_mut(), list_text)?;
+
+            if let Some(section) = section.as_deref_mut() {
+                let last_entry = section.children.last_mut();
+
+                match last_entry {
+                    Some(OrgSectionContent::List(list)) => {
+                        if list.ty == list_ty {
+                            list.values.push(OrgListValue::Content(list_entry_content));
+
+                            return Ok(Vec::with_capacity(0));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            return Ok(vec![OrgSectionContent::List(OrgListEntry {
+                ty: list_ty,
+                values: vec![OrgListValue::Content(list_entry_content)],
+            })]);
+        }
     }
 
     match EMPHASIS_REGEX.captures(text) {
@@ -66,7 +106,7 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                         ) {
                             content.push(OrgSectionContent::Link {
                                 link: link.into(),
-                                label: parse_content(label)?,
+                                label: parse_content(section.as_deref_mut(), label)?,
                             });
                         } else if let (Some(fn_name), Some(fn_content), Some(fn_extra)) = (
                             captures.get(3).map(|m| m.as_str()),
@@ -79,7 +119,7 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                                 } else {
                                     Some(fn_name.into())
                                 },
-                                content: parse_content(fn_content)?,
+                                content: parse_content(section.as_deref_mut(), fn_content)?,
                             });
 
                             end -= fn_extra.len();
@@ -87,14 +127,15 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                             unreachable!();
                         }
 
-                        content.append(&mut parse_content(&text[end..])?);
+                        content.append(&mut parse_content(section, &text[end..])?);
 
                         return Ok(content);
                     }
                 }
 
                 let emphasis_ty = captures.get(1).unwrap().as_str();
-                let inner = parse_content(captures.get(2).unwrap().as_str())?;
+                let inner =
+                    parse_content(section.as_deref_mut(), captures.get(2).unwrap().as_str())?;
 
                 let section_content = match emphasis_ty {
                     "*" => OrgSectionContent::Bold(inner),
@@ -108,7 +149,7 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
 
                 content.push(section_content);
 
-                content.append(&mut parse_content(&text[end..])?);
+                content.append(&mut parse_content(section, &text[end..])?);
 
                 Ok(content)
             } else {
@@ -128,7 +169,7 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                     ) {
                         content.push(OrgSectionContent::Link {
                             link: link.into(),
-                            label: parse_content(label)?,
+                            label: parse_content(section.as_deref_mut(), label)?,
                         });
                     } else if let (Some(fn_name), Some(fn_content), Some(fn_extra)) = (
                         captures.get(3).map(|m| m.as_str()),
@@ -141,7 +182,7 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                             } else {
                                 Some(fn_name.into())
                             },
-                            content: parse_content(fn_content)?,
+                            content: parse_content(section.as_deref_mut(), fn_content)?,
                         });
 
                         end -= fn_extra.len();
@@ -149,7 +190,7 @@ fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
                         unreachable!();
                     }
 
-                    content.append(&mut parse_content(&text[end..])?);
+                    content.append(&mut parse_content(section, &text[end..])?);
 
                     return Ok(content);
                 }
@@ -306,7 +347,12 @@ impl<'a> Parser<'a> {
                     }
                 }
 
-                let content = self.parse_section_content(content_start)?;
+                self.continue_until(|c| c != '\n');
+
+                let text = self.sub_str(content_start, self.offset)?;
+                let content = parse_content(None, text)?;
+
+                self.next_if('\n');
 
                 self.headline = Some(OrgHeadline {
                     level: stars as u8,
@@ -314,6 +360,8 @@ impl<'a> Parser<'a> {
                     content,
                     ..Default::default()
                 });
+
+                return Ok(());
             } else {
                 self.offset = start_offset;
             }
@@ -361,38 +409,25 @@ impl<'a> Parser<'a> {
             _ => {}
         }
 
-        let mut content = self.parse_section_content(self.offset)?;
-
-        // Create a new section on new headline, otherwise append
         if let Some(headline) = self.headline.take() {
             self.document.content.push(OrgContent::Section(OrgSection {
                 headline: Some(headline),
-                children: content,
+                children: vec![],
             }));
-        } else {
-            let section = self.get_last_section();
-
-            // Add a newline if there is a newline in the section
-            if !section.children.is_empty() {
-                section.children.push(OrgSectionContent::Newline);
-            }
-
-            section.children.append(&mut content);
         }
 
-        Ok(())
-    }
-
-    fn parse_section_content(&mut self, start_offset: usize) -> Result<Vec<OrgSectionContent>> {
         self.continue_until(|c| c != '\n');
 
-        // TODO: Handle text effects + elements like date, links and images
-        let text = self.sub_str(start_offset, self.offset)?;
-        let content = parse_content(text)?;
-
+        let text = self.sub_str(start_offset, self.offset)?.to_string();
         self.next_if('\n');
 
-        Ok(content)
+        let section = self.get_last_section();
+        let mut content = parse_content(Some(section), &text)?;
+
+        // Create a new section on new headline, otherwise append
+        section.children.append(&mut content);
+
+        Ok(())
     }
 
     pub fn parse(mut self) -> Result<OrgDocument> {

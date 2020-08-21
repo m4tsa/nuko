@@ -1,6 +1,8 @@
 use crate::toc::Toc;
 use anyhow::Result;
-use nuko_org_parser::ast::{OrgContent, OrgDocument, OrgSection, OrgSectionContent};
+use nuko_org_parser::ast::{
+    OrgContent, OrgDocument, OrgListType, OrgListValue, OrgSection, OrgSectionContent,
+};
 
 #[derive(Default)]
 pub struct EmitData {
@@ -67,7 +69,31 @@ fn emit_section_content(
 
                 out.push_str(&format!("<sup><a href=#fn{0} id=fns{0}>{0}</a></sup>", id));
             }
-            OrgSectionContent::Newline => out.push_str("</p><p>"),
+            OrgSectionContent::List(list) => {
+                match list.ty {
+                    OrgListType::Bullet => out.push_str("<ul>"),
+                };
+
+                for value in &list.values {
+                    out.push_str("<li>");
+                    match value {
+                        OrgListValue::Content(content) => {
+                            emit_section_content(out, data, &content, false)
+                        }
+                        OrgListValue::SubList(_) => unimplemented!("org list sublists"),
+                    }
+                    out.push_str("</li>");
+                }
+
+                match list.ty {
+                    OrgListType::Bullet => out.push_str("</ul>"),
+                };
+            }
+            OrgSectionContent::Newline => {
+                if paragraph {
+                    out.push_str("</p><p>")
+                }
+            }
         }
     }
 
