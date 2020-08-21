@@ -1,8 +1,10 @@
+use crate::toc::Toc;
 use anyhow::Result;
 use nuko_org_parser::ast::{OrgContent, OrgDocument, OrgSection, OrgSectionContent};
 
 #[derive(Default)]
 pub struct EmitData {
+    toc: Toc,
     footnotes: Vec<Vec<OrgSectionContent>>,
 }
 
@@ -74,25 +76,45 @@ fn emit_section_content(
     }
 }
 
-fn emit_section(out: &mut String, data: &mut Option<&mut EmitData>, section: &OrgSection) {
+fn content_to_str(out: &mut String, content: &[OrgSectionContent]) {
+    for c in content {
+        match c {
+            OrgSectionContent::Text(s) => out.push_str(s),
+            OrgSectionContent::Bold(c) => content_to_str(out, c),
+            OrgSectionContent::Italic(c) => content_to_str(out, c),
+            OrgSectionContent::Underlined(c) => content_to_str(out, c),
+            OrgSectionContent::Strikethrough(c) => content_to_str(out, c),
+            _ => {}
+        }
+    }
+}
+
+fn emit_section(out: &mut String, data: &mut EmitData, section: &OrgSection) {
     if let Some(headline) = &section.headline {
-        out.push_str(&format!("<h{}><a href=\"#\">", headline.level));
+        let mut title = String::new();
+        content_to_str(&mut title, &headline.content);
+        let headline_link = data.toc.add_headline(headline.level, &title);
+
+        out.push_str(&format!(
+            "<h{} id=\"{1}\"><a href=\"#{1}\">",
+            headline.level, &headline_link
+        ));
 
         if headline.keyword == Some("TODO".into()) {
             out.push_str("<span class=todo>TODO</span> ");
         }
 
-        emit_section_content(out, data, &headline.content, false);
+        emit_section_content(out, &mut Some(data), &headline.content, false);
 
         out.push_str(&format!("</a></h{}>", headline.level));
     }
 
     if !section.children.is_empty() {
-        emit_section_content(out, data, &section.children, true);
+        emit_section_content(out, &mut Some(data), &section.children, true);
     }
 }
 
-pub fn emit_document(document: &OrgDocument) -> Result<String> {
+pub fn emit_document(document: &OrgDocument) -> Result<(Toc, String)> {
     let mut out = String::with_capacity(1024);
 
     let mut data = EmitData::default();
@@ -101,7 +123,7 @@ pub fn emit_document(document: &OrgDocument) -> Result<String> {
         match content {
             OrgContent::Keyword(_) => {}
             OrgContent::Comment(_) => {}
-            OrgContent::Section(section) => emit_section(&mut out, &mut Some(&mut data), section),
+            OrgContent::Section(section) => emit_section(&mut out, &mut data, section),
         }
     }
 
@@ -121,5 +143,5 @@ pub fn emit_document(document: &OrgDocument) -> Result<String> {
         out.push_str("</ol></section>");
     }
 
-    Ok(out)
+    Ok((data.toc, out))
 }

@@ -143,9 +143,12 @@ impl Site {
     pub fn render_page(&self, page: &Page) -> Result<()> {
         let mut tera_context = tera::Context::new();
 
+        let (toc, html) = page.render_html()?;
+
         tera_context.insert("site_config", &self.site_config);
         tera_context.insert("page", &page);
-        tera_context.insert("document", &page.render_html()?);
+        tera_context.insert("document", &html);
+        tera_context.insert("toc", &toc);
 
         let contents = self.render_template("page.html", &tera_context)?;
 

@@ -1,4 +1,4 @@
-use crate::{config::SiteConfig, org_emitter::emit_document};
+use crate::{config::SiteConfig, org_emitter::emit_document, toc::Toc};
 use anyhow::Result;
 use nuko_org_parser::{ast::OrgDocument, parser::Parser};
 use serde_derive::Serialize;
@@ -56,7 +56,7 @@ impl Page {
         Page::parse(page_path, text, config)
     }
 
-    pub fn render_html(&self) -> Result<String> {
+    pub fn render_html(&self) -> Result<(Toc, String)> {
         emit_document(&self.document)
     }
 
