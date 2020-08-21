@@ -18,7 +18,7 @@ lazy_static! {
     pub static ref EMPHASIS_REGEX: FancyRegex =
         FancyRegex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
     pub static ref EXTRAS_REGEX: Regex =
-        Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]|\[fn:(|.+?):(.+?)\]").unwrap();
+        Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]|\[fn:(|.+?)?:(.+?)(?:[^\]])\](?:(?:[^\[\]])|$)").unwrap();
 }
 
 fn parse_content(text: &str) -> Result<Vec<OrgSectionContent>> {
