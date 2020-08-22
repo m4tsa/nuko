@@ -1,4 +1,4 @@
-use crate::{config::SiteConfig, page::Page, sitemap::Sitemap};
+use crate::{config::SiteConfig, page::Page, sitemap::Sitemap, template_fns};
 use anyhow::Result;
 use glob::glob;
 use std::{
@@ -121,6 +121,11 @@ impl Site {
     }
 
     pub fn build(&mut self) -> Result<()> {
+        self.tera.register_function(
+            "get_url",
+            template_fns::GetUrl::new(self.site_config.clone(), self.out_path.clone()),
+        );
+
         // Delete the previous out path if exists
         if self.out_path.exists() {
             fs::remove_dir_all(&self.out_path)?;
