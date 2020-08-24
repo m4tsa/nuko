@@ -425,7 +425,11 @@ impl<'a> Parser<'a> {
         let mut content = parse_content(Some(section), &text)?;
 
         if !section.children.is_empty() {
-            section.children.push(OrgSectionContent::Newline);
+            if let Some(OrgSectionContent::List(_)) = section.children.last() {
+                // Do nothing
+            } else {
+                section.children.push(OrgSectionContent::Newline);
+            }
         }
 
         // Create a new section on new headline, otherwise append
