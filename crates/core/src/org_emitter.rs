@@ -51,13 +51,13 @@ fn emit_section_content(
                 out.push_str("</s>");
             }
             OrgSectionContent::Link { link, label } => {
-                let link = if link.starts_with("/") {
-                    format!("{}{}", base_url, link)
+                let (link, extra) = if link.starts_with("/") {
+                    (format!("{}{}", base_url, link), "")
                 } else {
-                    link.into()
+                    (link.into(), " rel=\"noreferrer noopener\"")
                 };
 
-                out.push_str(&format!("<a href=\"{}\">", link));
+                out.push_str(&format!("<a href=\"{}\"{}>", link, extra));
                 emit_section_content(out, base_url, data, label, false);
                 out.push_str("</a>");
             }
