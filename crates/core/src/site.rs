@@ -192,7 +192,8 @@ impl Site {
         tera_context.insert("document", &html);
         tera_context.insert("toc", &toc);
 
-        let contents = self.render_template("page.html", &tera_context)?;
+        let contents =
+            self.render_template(page.template().unwrap_or("page.html"), &tera_context)?;
 
         let out_path = self.out_path.join(page.page_path().strip_prefix("/")?);
 
