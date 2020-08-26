@@ -1,6 +1,7 @@
 pub mod config;
 pub mod org_emitter;
 pub mod page;
+pub mod posts;
 pub mod site;
 pub mod sitemap;
 pub mod template_fns;

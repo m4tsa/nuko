@@ -1,4 +1,4 @@
-use crate::{config::SiteConfig, page::Page, sitemap::Sitemap, template_fns};
+use crate::{config::SiteConfig, page::Page, posts::Posts, sitemap::Sitemap, template_fns};
 use anyhow::Result;
 use glob::glob;
 use std::{
@@ -15,6 +15,7 @@ pub struct Site {
     root_path: PathBuf,
     tera: Tera,
     pages: HashMap<PathBuf, Page>,
+    posts: Posts,
     sitemap: Sitemap,
 }
 
@@ -61,6 +62,7 @@ impl Site {
             sitemap: Sitemap::default(),
             tera,
             pages: HashMap::new(),
+            posts: Posts::default(),
         })
     }
 
@@ -83,10 +85,27 @@ impl Site {
             .map(|page_path| Page::read_file(&self.root_path, page_path, &self.site_config))
             .collect::<Result<Vec<Page>>>()?;
 
+        let mut post_paths: Vec<PathBuf> = Vec::new();
+
+        for page in &pages {
+            if page.ty() == Some("posts") {
+                post_paths.push(page.page_path().into());
+            }
+        }
+
         for page in pages {
             self.sitemap.add_page(&self.site_config, &page)?;
+
+            if let Some(parent) = page.page_path().parent() {
+                if post_paths.contains(&parent.into()) {
+                    self.posts.add_page(&page)?;
+                }
+            }
+
             self.pages.insert(page.page_path().into(), page);
         }
+
+        self.posts.sort();
 
         Ok(())
     }
@@ -188,6 +207,7 @@ impl Site {
         let (toc, html) = page.render_html(&self.site_config.site.base_url)?;
 
         tera_context.insert("site_config", &self.site_config);
+        tera_context.insert("posts", &self.posts);
         tera_context.insert("page", &page);
         tera_context.insert("document", &html);
         tera_context.insert("toc", &toc);

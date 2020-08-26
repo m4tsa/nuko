@@ -11,6 +11,7 @@ use std::{
 pub struct Page {
     document: OrgDocument,
     title: Option<String>,
+    ty: Option<String>,
     template: Option<String>,
     description: Option<String>,
     page_path: PathBuf,
@@ -21,12 +22,14 @@ impl Page {
         let document = Parser::new(&text).parse()?;
 
         let title = document.get_keyword("TITLE").map(|t| t.to_string());
+        let ty = document.get_keyword("TYPE").map(|t| t.to_string());
         let template = document.get_keyword("TEMPLATE").map(|t| t.to_string());
         let description = document.get_keyword("DESCRIPTION").map(|t| t.to_string());
 
         Ok(Page {
             document,
             title,
+            ty,
             template,
             description,
             page_path,
@@ -65,6 +68,18 @@ impl Page {
 
     pub fn document(&self) -> &OrgDocument {
         &self.document
+    }
+
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_ref().map(|s| s.as_str())
+    }
+
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_ref().map(|s| s.as_str())
+    }
+
+    pub fn ty(&self) -> Option<&str> {
+        self.ty.as_ref().map(|s| s.as_str())
     }
 
     pub fn template(&self) -> Option<&str> {
