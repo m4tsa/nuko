@@ -229,22 +229,41 @@ impl Site {
 
     fn merge_static(&self) -> Result<()> {
         if let Some(theme) = &self.site_config.site.theme {
-            let static_dir = self.root_path.join("themes").join(theme).join("static");
+            let mut static_dirs = Vec::new();
 
-            if static_dir.is_dir() {
+            let theme_static_dir = self.root_path.join("themes").join(theme).join("static");
+            if theme_static_dir.is_dir() {
+                static_dirs.push(theme_static_dir);
+            }
+
+            let site_static_dir = self.root_path.join("static");
+            if site_static_dir.is_dir() {
+                static_dirs.push(site_static_dir);
+            }
+
+            if !static_dirs.is_empty() {
                 let out = self.out_path.join("static");
 
-                fs_extra::copy_items(
-                    &vec![&static_dir],
-                    &out,
-                    &fs_extra::dir::CopyOptions {
-                        overwrite: false,
-                        skip_exist: false,
-                        buffer_size: 64 * 1024,
-                        depth: 0,
-                        copy_inside: true,
-                    },
-                )?;
+                for dir in static_dirs {
+                    // Workaround for some copying behavior
+                    let out = if out.is_dir() {
+                        out.join("..")
+                    } else {
+                        out.clone()
+                    };
+
+                    fs_extra::dir::copy(
+                        &dir,
+                        &out,
+                        &fs_extra::dir::CopyOptions {
+                            overwrite: false,
+                            skip_exist: false,
+                            buffer_size: 64 * 1024,
+                            depth: 0,
+                            copy_inside: true,
+                        },
+                    )?;
+                }
             }
         }
 
