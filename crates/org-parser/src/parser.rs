@@ -19,7 +19,7 @@ pub struct Parser<'a> {
 
 lazy_static! {
     pub static ref EMPHASIS_REGEX: FancyRegex =
-        FancyRegex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)\1(?:[ ]|$)").unwrap();
+        FancyRegex::new(r"(?:^|[ ])([\*|\/|\_|\=|\~|\+])([^\*]+?)?\1").unwrap();
     pub static ref EXTRAS_REGEX: Regex =
         Regex::new(r"\[\[(.+?)\]\[(.+?)\]\]|\[fn:(|.+?)?:(.+?[^\]])\]((?:[^\[\]])|$)").unwrap();
 }
@@ -403,7 +403,38 @@ impl<'a> Parser<'a> {
                     return Ok(());
                 // It's not a keyword then :(
                 } else {
-                    self.offset = start_offset;
+                    if text == "BEGIN_HTML" {
+                        // Eat the newline
+                        self.next_char().unwrap();
+
+                        let mut start_offset = self.offset;
+
+                        let mut html = String::new();
+
+                        while self.peek_char().is_some() {
+                            self.continue_until(|c| c != '\n');
+
+                            let text = self.sub_str(start_offset, self.offset)?.to_string();
+                            // Eat the newline if it exists
+                            self.next_char();
+
+                            if text == "#+END_HTML" {
+                                break;
+                            } else {
+                                html.push_str(&text);
+                            }
+
+                            start_offset = self.offset;
+                        }
+
+                        self.get_last_section()
+                            .children
+                            .push(OrgSectionContent::Html(html));
+
+                        return Ok(());
+                    } else {
+                        self.offset = start_offset;
+                    }
                 }
             }
             _ => {}

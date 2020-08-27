@@ -101,6 +101,7 @@ fn emit_section_content(
                     out.push_str("</p><p>")
                 }
             }
+            OrgSectionContent::Html(html) => out.push_str(html),
         }
     }
 
@@ -176,5 +177,6 @@ pub fn emit_document(document: &OrgDocument, base_url: &str) -> Result<(Toc, Str
         out.push_str("</ol></section>");
     }
 
-    Ok((data.toc, out))
+    // TODO: Fix emitting so empty paragraphs are not emitted
+    Ok((data.toc, out.replace("<p></p>", "")))
 }

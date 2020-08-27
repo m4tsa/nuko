@@ -48,6 +48,7 @@ pub enum OrgSectionContent {
         label: Vec<OrgSectionContent>,
     },
     Newline,
+    Html(String),
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
