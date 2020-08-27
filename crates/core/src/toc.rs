@@ -60,26 +60,28 @@ impl Toc {
             .replace(|c: char| !c.is_alphanumeric(), "")
             .to_ascii_lowercase();
 
-        if self.used_shortcuts.contains(&shortcut) {
-            for i in 1..100 {
-                let new = format!("{}{}", shortcut, i);
+        if level < 5 {
+            if self.used_shortcuts.contains(&shortcut) {
+                for i in 1..100 {
+                    let new = format!("{}{}", shortcut, i);
 
-                if self.used_shortcuts.contains(&new) {
-                    continue;
-                } else {
-                    shortcut = new;
-                    break;
+                    if self.used_shortcuts.contains(&new) {
+                        continue;
+                    } else {
+                        shortcut = new;
+                        break;
+                    }
                 }
+
+                assert!(!self.used_shortcuts.contains(&shortcut));
             }
 
-            assert!(!self.used_shortcuts.contains(&shortcut));
+            let (num, section) = self.get_section(level - 1);
+
+            section.num = num;
+            section.shortcut = shortcut.clone();
+            section.text = title.into();
         }
-
-        let (num, section) = self.get_section(level - 1);
-
-        section.num = num;
-        section.shortcut = shortcut.clone();
-        section.text = title.into();
 
         shortcut
     }
