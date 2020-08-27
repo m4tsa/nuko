@@ -19,6 +19,7 @@ pub struct Page {
     page_path: PathBuf,
     date: Option<NaiveDate>,
     date_updated: Option<NaiveDate>,
+    tags: Vec<String>,
 }
 
 impl Page {
@@ -80,6 +81,18 @@ impl Page {
             (None, None)
         };
 
+        let mut tags = Vec::new();
+
+        if let Some(tags_value) = document.get_keyword("TAGS") {
+            for tag in tags_value.split(',') {
+                if tag.chars().any(|c| !c.is_ascii_lowercase()) {
+                    return Err(PageError::InvalidTag(tag.into()).into());
+                }
+
+                tags.push(tag.into());
+            }
+        }
+
         Ok(Page {
             document,
             title,
@@ -89,6 +102,7 @@ impl Page {
             page_path,
             date,
             date_updated,
+            tags,
         })
     }
 
@@ -153,10 +167,16 @@ impl Page {
     pub fn page_path(&self) -> &Path {
         &self.page_path
     }
+
+    pub fn tags(&self) -> &[String] {
+        &self.tags
+    }
 }
 
 #[derive(Error, Debug)]
 pub enum PageError {
     #[error("invalid date field: {0} \"{1}\"")]
     InvalidDateField(String, String),
+    #[error("invalid tag: \"{0}\"")]
+    InvalidTag(String),
 }

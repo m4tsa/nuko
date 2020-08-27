@@ -2,7 +2,7 @@ use crate::page::Page;
 use anyhow::Result;
 use chrono::NaiveDate;
 use serde_derive::Serialize;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 use thiserror::Error;
 
 #[derive(Serialize)]
@@ -12,11 +12,13 @@ pub struct Post {
     page_path: PathBuf,
     date: NaiveDate,
     date_updated: Option<NaiveDate>,
+    tags: Vec<String>,
 }
 
 #[derive(Default, Serialize)]
 pub struct Posts {
     posts: Vec<Post>,
+    tags: BTreeMap<String, Vec<(String, PathBuf)>>,
 }
 
 impl Posts {
@@ -38,6 +40,7 @@ impl Posts {
                 .ok_or_else(|| PostsError::MissingDate(page_path.into()))?
                 .clone(),
             date_updated: page.date_updated().map(|d| d.clone()),
+            tags: page.tags().to_vec(),
         };
 
         self.posts.push(post);
@@ -47,6 +50,16 @@ impl Posts {
 
     pub fn sort(&mut self) {
         self.posts.sort_by(|a, b| b.date.cmp(&a.date))
+    }
+
+    pub fn generate_tag_index(&mut self) {
+        for post in &self.posts {
+            for tag in &post.tags {
+                let tag_entry = self.tags.entry(tag.clone()).or_insert_with(|| Vec::new());
+
+                tag_entry.push((post.title.clone(), post.page_path.clone()));
+            }
+        }
     }
 }
 

@@ -106,6 +106,7 @@ impl Site {
         }
 
         self.posts.sort();
+        self.posts.generate_tag_index();
 
         Ok(())
     }
