@@ -23,8 +23,6 @@ impl Posts {
     pub fn add_page(&mut self, page: &Page) -> Result<()> {
         let page_path = page.page_path();
 
-        let date = NaiveDate::from_ymd(2020, 1, 1);
-
         let post = Post {
             title: page
                 .title()
@@ -35,8 +33,11 @@ impl Posts {
                 .ok_or_else(|| PostsError::MissingDescription(page_path.into()))?
                 .into(),
             page_path: page_path.into(),
-            date,
-            date_updated: None,
+            date: page
+                .date()
+                .ok_or_else(|| PostsError::MissingDate(page_path.into()))?
+                .clone(),
+            date_updated: page.date_updated().map(|d| d.clone()),
         };
 
         self.posts.push(post);
@@ -45,7 +46,7 @@ impl Posts {
     }
 
     pub fn sort(&mut self) {
-        self.posts.sort_by(|a, b| a.date.cmp(&b.date))
+        self.posts.sort_by(|a, b| b.date.cmp(&a.date))
     }
 }
 
@@ -55,4 +56,6 @@ pub enum PostsError {
     MissingTitle(PathBuf),
     #[error("post at \"{0:?}\" is missing the description keyword")]
     MissingDescription(PathBuf),
+    #[error("post at \"{0:?}\" is missing the date keyword")]
+    MissingDate(PathBuf),
 }
