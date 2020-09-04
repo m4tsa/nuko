@@ -10,13 +10,16 @@ pub struct Sitemap {
 
 impl Sitemap {
     pub fn add_page(&mut self, site_config: &SiteConfig, page: &Page) -> Result<()> {
+        let path_str: String = page.page_path().to_string_lossy().into();
+
         self.pages.insert(
-            page.page_path().to_string_lossy().into(),
+            path_str.clone(),
             SitemapEntry {
                 permalink: format!(
-                    "{}{}",
+                    "{}{}{}",
                     site_config.site.base_url,
-                    page.page_path().to_string_lossy()
+                    path_str,
+                    if path_str.ends_with('/') { "" } else { "/" }
                 ),
             },
         );
