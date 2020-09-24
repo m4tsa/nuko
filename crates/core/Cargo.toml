@@ -9,7 +9,6 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 fs_extra = "1.1.0"
 glob = "0.3.0"
-nuko-org-parser = { path = "../org-parser" }
 orgize = "0.8.4"
 toml = "0.5"
 sass-rs = "0.2.2"

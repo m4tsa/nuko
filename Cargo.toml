@@ -21,6 +21,5 @@ name = "nuko"
 
 [workspace]
 members = [
-    "crates/core",
-    "crates/org-parser"
+    "crates/core"
 ]

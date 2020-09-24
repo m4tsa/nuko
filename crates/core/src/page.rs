@@ -4,7 +4,6 @@ use chrono::NaiveDate;
 use orgize::Org;
 use serde_derive::Serialize;
 use std::{
-    borrow::Cow,
     fs,
     path::{Path, PathBuf},
 };
