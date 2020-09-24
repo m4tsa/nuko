@@ -108,6 +108,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
 
 [[package]]
+name = "bytecount"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0017894339f586ccb943b01b9555de56770c11cda818e7e3d8bd93f4ed7f46e"
+
+[[package]]
 name = "byteorder"
 version = "1.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -325,10 +331,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "indextree"
+version = "4.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "990980c3d268c9b99df35e813eca2b8d1ee08606f6d2bb325edbd0b0c68f9ffe"
+
+[[package]]
 name = "itoa"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
+
+[[package]]
+name = "jetscii"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f25cca2463cb19dbb1061eb3bd38a8b5e4ce1cc5a5a9fc0e02de486d92b9b05"
 
 [[package]]
 name = "lazy_static"
@@ -364,6 +382,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
 
 [[package]]
+name = "nom"
+version = "5.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffb4262d26ed83a1c0a33a38fe2bb15797329c85770da05e6b828ddb782627af"
+dependencies = [
+ "memchr",
+ "version_check",
+]
+
+[[package]]
 name = "nuko"
 version = "0.1.0"
 dependencies = [
@@ -384,6 +412,7 @@ dependencies = [
  "fs_extra",
  "glob",
  "nuko-org-parser",
+ "orgize",
  "sass-rs",
  "serde",
  "serde_derive",
@@ -447,6 +476,22 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
+
+[[package]]
+name = "orgize"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bde6ef43755ce5bf4c88de5d09aaaeda915ea0fe99e2ca15a39bd33393b79af6"
+dependencies = [
+ "bytecount",
+ "indextree",
+ "jetscii",
+ "lazy_static",
+ "memchr",
+ "nom",
+ "serde",
+ "serde_indextree",
+]
 
 [[package]]
 name = "parse-zoneinfo"
@@ -637,6 +682,9 @@ name = "serde"
 version = "1.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e54c9a88f2da7238af84b5101443f0c0d0a3bbdc455e34a5c9497b1903ed55d5"
+dependencies = [
+ "serde_derive",
+]
 
 [[package]]
 name = "serde_derive"
@@ -647,6 +695,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "serde_indextree"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a70e7d58005454b0ba863a8775df0c4391a8128c3a34974001de556d661bf74f"
+dependencies = [
+ "indextree",
+ "serde",
 ]
 
 [[package]]

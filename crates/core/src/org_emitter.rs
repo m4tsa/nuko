@@ -1,163 +1,186 @@
 use crate::toc::Toc;
 use anyhow::Result;
-use nuko_org_parser::ast::{
-    OrgContent, OrgDocument, OrgListType, OrgListValue, OrgSection, OrgSectionContent,
+use orgize::{
+    elements::{Element, Link},
+    Event, Org,
 };
 
 #[derive(Default)]
 pub struct EmitData {
     toc: Toc,
-    footnotes: Vec<Vec<OrgSectionContent>>,
+    footnotes: Vec<String>,
 }
 
-fn emit_section_content(
-    out: &mut String,
-    base_url: &str,
-    data: &mut Option<&mut EmitData>,
-    content: &[OrgSectionContent],
-    paragraph: bool,
-) {
-    if paragraph {
-        out.push_str("<p>");
-    }
+fn link_to_html(base_url: &str, link: &Link) -> String {
+    let (href, extra) = if link.path.starts_with("/") {
+        (format!("{}{}", base_url, link.path), "")
+    } else {
+        (link.path.to_string(), " rel=\"noreferrer noopener\"")
+    };
 
-    for content in content {
-        match content {
-            OrgSectionContent::Text(s) => out.push_str(s),
-            OrgSectionContent::Bold(content) => {
-                out.push_str("<b>");
-                emit_section_content(out, base_url, data, content, false);
-                out.push_str("</b>");
-            }
-            OrgSectionContent::Italic(content) => {
-                out.push_str("<i>");
-                emit_section_content(out, base_url, data, content, false);
-                out.push_str("</i>");
-            }
-            OrgSectionContent::Underlined(content) => {
-                out.push_str("<u>");
-                emit_section_content(out, base_url, data, content, false);
-                out.push_str("</u>");
-            }
-            OrgSectionContent::Verbatim(_content) => {
-                unimplemented!("org emit verbatim");
-            }
-            OrgSectionContent::Code(_content) => {
-                unimplemented!("org emit code");
-            }
-            OrgSectionContent::Strikethrough(content) => {
-                out.push_str("<s>");
-                emit_section_content(out, base_url, data, content, false);
-                out.push_str("</s>");
-            }
-            OrgSectionContent::Link { link, label } => {
-                let (link, extra) = if link.starts_with("/") {
-                    (format!("{}{}", base_url, link), "")
-                } else {
-                    (link.into(), " rel=\"noreferrer noopener\"")
-                };
+    format!(
+        "<a href=\"{}\"{}>{}",
+        href,
+        extra,
+        tera::escape_html(&link.desc.clone().unwrap_or_default())
+    )
+}
 
-                out.push_str(&format!("<a href=\"{}\"{}>", link, extra));
-                emit_section_content(out, base_url, data, label, false);
-                out.push_str("</a>");
+fn emit_element_start(out: &mut String, base_url: &str, data: &mut EmitData, element: &Element) {
+    match element {
+        Element::SpecialBlock(_special_block) => {}
+        Element::QuoteBlock(_quote_block) => {}
+        Element::CenterBlock(_center_block) => {}
+        Element::VerseBlock(_verse_block) => {}
+        Element::CommentBlock(_comment_block) => {}
+        Element::ExampleBlock(_example_block) => {}
+        Element::ExportBlock(export_block) => {
+            // Emit raw html
+            if export_block.data.to_ascii_lowercase() == "html" {
+                out.push_str(&export_block.contents);
             }
-            OrgSectionContent::Footnote { name, content } => {
-                if name.is_some() {
-                    unimplemented!("custom footnote names");
-                }
-
-                let data = data
-                    .as_mut()
-                    .expect("foot notes can only be used in main section");
-
-                data.footnotes.push(content.clone());
-
-                let id = data.footnotes.len();
-
-                out.push_str(&format!("<sup><a href=#fn{0} id=fns{0}>{0}</a></sup>", id));
-            }
-            OrgSectionContent::List(list) => {
-                match list.ty {
-                    OrgListType::Bullet => out.push_str("<ul>"),
-                };
-
-                for value in &list.values {
-                    out.push_str("<li>");
-                    match value {
-                        OrgListValue::Content(content) => {
-                            emit_section_content(out, base_url, data, &content, false)
-                        }
-                        OrgListValue::SubList(_) => unimplemented!("org list sublists"),
-                    }
-                    out.push_str("</li>");
-                }
-
-                match list.ty {
-                    OrgListType::Bullet => out.push_str("</ul>"),
-                };
-            }
-            OrgSectionContent::Newline => {
-                if paragraph {
-                    out.push_str("</p><p>")
-                }
-            }
-            OrgSectionContent::Html(html) => out.push_str(html),
         }
-    }
+        Element::SourceBlock(_source_block) => {}
+        Element::BabelCall(_babel_call) => {}
+        Element::Section => {}
+        Element::Clock(_clock) => {}
+        Element::Cookie(_cookie) => {}
+        Element::RadioTarget => {}
+        Element::Drawer(_drawer) => {}
+        Element::Document { pre_blank: _ } => {}
+        Element::DynBlock(_dyn_block) => {}
+        Element::FnDef(_fn_def) => {}
+        Element::FnRef(fn_ref) => {
+            // Anonymous definition
+            if fn_ref.label == "" {
+                data.footnotes.push(
+                    fn_ref
+                        .definition
+                        .as_ref()
+                        .map(|s| s.to_string())
+                        .unwrap_or_default(),
+                );
 
-    if paragraph {
-        out.push_str("</p>");
-    }
-}
-
-fn content_to_str(out: &mut String, content: &[OrgSectionContent]) {
-    for c in content {
-        match c {
-            OrgSectionContent::Text(s) => out.push_str(s),
-            OrgSectionContent::Bold(c) => content_to_str(out, c),
-            OrgSectionContent::Italic(c) => content_to_str(out, c),
-            OrgSectionContent::Underlined(c) => content_to_str(out, c),
-            OrgSectionContent::Strikethrough(c) => content_to_str(out, c),
-            _ => {}
+                out.push_str(&format!(
+                    "<sup id=fns{0}><a href=#fn{0}>{0}</a></sup>",
+                    data.footnotes.len()
+                ));
+            }
         }
-    }
-}
-
-fn emit_section(out: &mut String, base_url: &str, data: &mut EmitData, section: &OrgSection) {
-    if let Some(headline) = &section.headline {
-        let mut title = String::new();
-        content_to_str(&mut title, &headline.content);
-        let headline_link = data.toc.add_headline(headline.level, &title);
-
-        out.push_str(&format!(
-            "<h{} id=\"{1}\"><a href=\"#{1}\">",
-            headline.level, &headline_link
-        ));
-
-        if headline.keyword == Some("TODO".into()) {
-            out.push_str("<span class=todo>TODO</span> ");
+        Element::Headline { level: _ } => {}
+        Element::InlineCall(_inline_call) => {}
+        Element::InlineSrc(_inline_src) => {}
+        Element::Keyword(_keyword) => {}
+        Element::Link(link) => out.push_str(&link_to_html(base_url, link)),
+        Element::List(list) => {
+            if list.ordered {
+                out.push_str("<ol>");
+            } else {
+                out.push_str("<ul>");
+            }
         }
+        Element::ListItem(_list_item) => out.push_str("<li>"),
+        Element::Macros(_macros) => {}
+        Element::Snippet(_snippet) => {}
+        Element::Text { value } => out.push_str(&tera::escape_html(value)),
+        Element::Paragraph { post_blank: _ } => out.push_str("<p>"),
+        Element::Rule(_rule) => out.push_str("<hr>"),
+        Element::Timestamp(_timestamp) => {}
+        Element::Target(_target) => {}
+        Element::Bold => out.push_str("<i>"),
+        Element::Strike => out.push_str("<s>"),
+        Element::Italic => out.push_str("<i>"),
+        Element::Underline => out.push_str("<u>"),
+        Element::Verbatim { value: _ } => {}
+        Element::Code { value: _ } => {}
+        Element::Comment(_comment) => {}
+        Element::FixedWidth(_fixed_width) => {}
+        Element::Title(title) => {
+            let level = title.level.min(6).max(1) as u8;
 
-        emit_section_content(out, base_url, &mut Some(data), &headline.content, false);
+            let text = tera::escape_html(&title.raw);
 
-        out.push_str(&format!("</a></h{}>", headline.level));
-    }
+            let headline_link = data.toc.add_headline(level, &text);
 
-    if !section.children.is_empty() {
-        emit_section_content(out, base_url, &mut Some(data), &section.children, true);
+            out.push_str(&format!(
+                "<h{level} id=\"{link}\"><a href=\"#{link}\">",
+                level = level,
+                link = &headline_link
+            ));
+        }
+        Element::Table(_table) => {}
+        Element::TableRow(_table_row) => {}
+        Element::TableCell(_table_cell) => {}
     }
 }
 
-pub fn emit_document(document: &OrgDocument, base_url: &str) -> Result<(Toc, String)> {
+fn emit_element_end(out: &mut String, element: &Element) {
+    match element {
+        Element::SpecialBlock(_special_block) => {}
+        Element::QuoteBlock(_quote_block) => {}
+        Element::CenterBlock(_center_block) => {}
+        Element::VerseBlock(_verse_block) => {}
+        Element::CommentBlock(_comment_block) => {}
+        Element::ExampleBlock(_example_block) => {}
+        Element::ExportBlock(_export_blokc) => {}
+        Element::SourceBlock(_source_block) => {}
+        Element::BabelCall(_babel_call) => {}
+        Element::Section => {}
+        Element::Clock(_clock) => {}
+        Element::Cookie(_cookie) => {}
+        Element::RadioTarget => {}
+        Element::Drawer(_drawer) => {}
+        Element::Document { pre_blank: _ } => {}
+        Element::DynBlock(_dyn_block) => {}
+        Element::FnDef(_fn_def) => {}
+        Element::FnRef(_fn_ref) => {}
+        Element::Headline { level: _ } => {}
+        Element::InlineCall(_inline_call) => {}
+        Element::InlineSrc(_inline_src) => {}
+        Element::Keyword(_keyword) => {}
+        Element::Link(_link) => out.push_str("</a>"),
+        Element::List(list) => {
+            if list.ordered {
+                out.push_str("</ol>");
+            } else {
+                out.push_str("</ul>");
+            }
+        }
+        Element::ListItem(_list_item) => out.push_str("</li>"),
+        Element::Macros(_macros) => {}
+        Element::Snippet(_snippet) => {}
+        Element::Paragraph { post_blank: _ } => out.push_str("</p>"),
+        Element::Rule(_rule) => {}
+        Element::Timestamp(_timestamp) => {}
+        Element::Target(_target) => {}
+        Element::Bold => out.push_str("</i>"),
+        Element::Strike => out.push_str("</s>"),
+        Element::Italic => out.push_str("</i>"),
+        Element::Underline => out.push_str("</u>"),
+        Element::Verbatim { value: _ } => {}
+        Element::Code { value: _ } => {}
+        Element::FixedWidth(_fixed_width) => {}
+        Element::Title(title) => {
+            let level = title.level.min(6).max(1) as u8;
+
+            out.push_str(&format!("</a></h{}>", level));
+        }
+        Element::Table(_table) => {}
+        Element::TableRow(_table_row) => {}
+        Element::TableCell(_table_cell) => {}
+        _ => {}
+    }
+}
+
+pub fn emit_document(document: &Org, base_url: &str) -> Result<(Toc, String)> {
     let mut out = String::with_capacity(1024);
 
     let mut data = EmitData::default();
 
-    for content in &document.content {
-        match content {
-            OrgContent::Keyword(_) => {}
-            OrgContent::Comment(_) => {}
-            OrgContent::Section(section) => emit_section(&mut out, base_url, &mut data, section),
+    for event in document.iter() {
+        match event {
+            Event::Start(element) => emit_element_start(&mut out, base_url, &mut data, element),
+            Event::End(element) => emit_element_end(&mut out, element),
         }
     }
 
@@ -169,14 +192,35 @@ pub fn emit_document(document: &OrgDocument, base_url: &str) -> Result<(Toc, Str
 
             out.push_str(&format!("<li id=fn{}><p>", fn_id));
 
-            emit_section_content(&mut out, base_url, &mut None, footnote, false);
+            let org = Org::parse(footnote);
 
-            out.push_str(&format!("  <a href=#fns{}>↵</a></p></li>", fn_id));
+            for event in org.iter() {
+                match event {
+                    Event::Start(element) => match element {
+                        Element::Link(link) => out.push_str(&link_to_html(base_url, link)),
+                        Element::Text { value } => out.push_str(&tera::escape_html(value)),
+                        Element::Bold => out.push_str("<i>"),
+                        Element::Strike => out.push_str("<s>"),
+                        Element::Italic => out.push_str("<i>"),
+                        Element::Underline => out.push_str("<u>"),
+                        _ => {}
+                    },
+                    Event::End(element) => match element {
+                        Element::Link(_link) => out.push_str("</a>"),
+                        Element::Bold => out.push_str("</i>"),
+                        Element::Strike => out.push_str("</s>"),
+                        Element::Italic => out.push_str("</i>"),
+                        Element::Underline => out.push_str("</u>"),
+                        _ => {}
+                    },
+                }
+            }
+
+            out.push_str(&format!(" <a href=#fns{}>↵</a></p></li>", fn_id));
         }
 
         out.push_str("</ol></section>");
     }
 
-    // TODO: Fix emitting so empty paragraphs are not emitted
-    Ok((data.toc, out.replace("<p></p>", "")))
+    Ok((data.toc, out))
 }

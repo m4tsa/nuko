@@ -1,9 +1,10 @@
 use crate::{config::SiteConfig, org_emitter::emit_document, toc::Toc};
 use anyhow::Result;
 use chrono::NaiveDate;
-use nuko_org_parser::{ast::OrgDocument, parser::Parser};
+use orgize::Org;
 use serde_derive::Serialize;
 use std::{
+    borrow::Cow,
     fs,
     path::{Path, PathBuf},
 };
@@ -11,7 +12,7 @@ use thiserror::Error;
 
 #[derive(Serialize)]
 pub struct Page {
-    document: OrgDocument,
+    document: Org<'static>,
     title: Option<String>,
     ty: Option<String>,
     template: Option<String>,
@@ -22,16 +23,26 @@ pub struct Page {
     tags: Vec<String>,
 }
 
+fn get_keyword(document: &Org, keyword: &str) -> Option<String> {
+    for keyword_entry in document.keywords() {
+        if keyword_entry.key == keyword {
+            return Some(keyword_entry.value.to_string());
+        }
+    }
+
+    None
+}
+
 impl Page {
     pub fn parse(page_path: PathBuf, text: String, _config: &SiteConfig) -> Result<Page> {
-        let document = Parser::new(&text).parse()?;
+        let document = Org::parse(Box::leak(text.into_boxed_str()));
 
-        let title = document.get_keyword("TITLE").map(|t| t.to_string());
-        let ty = document.get_keyword("TYPE").map(|t| t.to_string());
-        let template = document.get_keyword("TEMPLATE").map(|t| t.to_string());
-        let description = document.get_keyword("DESCRIPTION").map(|t| t.to_string());
+        let title = get_keyword(&document, "TITLE").map(|t| t.to_string());
+        let ty = get_keyword(&document, "TYPE").map(|t| t.to_string());
+        let template = get_keyword(&document, "TEMPLATE").map(|t| t.to_string());
+        let description = get_keyword(&document, "DESCRIPTION").map(|t| t.to_string());
 
-        let (date, date_updated) = if let Some(value) = document.get_keyword("DATE") {
+        let (date, date_updated) = if let Some(value) = get_keyword(&document, "DATE") {
             if !value.starts_with('<') {
                 return Err(PageError::InvalidDateField(
                     "Missing timestamp".into(),
@@ -83,7 +94,7 @@ impl Page {
 
         let mut tags = Vec::new();
 
-        if let Some(tags_value) = document.get_keyword("TAGS") {
+        if let Some(tags_value) = get_keyword(&document, "TAGS") {
             for tag in tags_value.split(',') {
                 if tag.chars().any(|c| !c.is_ascii_lowercase()) {
                     return Err(PageError::InvalidTag(tag.into()).into());
@@ -136,7 +147,7 @@ impl Page {
         emit_document(&self.document, base_url)
     }
 
-    pub fn document(&self) -> &OrgDocument {
+    pub fn document(&self) -> &Org {
         &self.document
     }
 
