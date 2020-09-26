@@ -48,7 +48,11 @@ impl tera::Function for GetUrl {
                 hash
             )
         } else {
-            format!("{}/{}", self.config.site.base_url, path.to_string_lossy())
+            if path.extension().is_some() {
+                format!("{}/{}", self.config.site.base_url, path.to_string_lossy())
+            } else {
+                format!("{}/{}/", self.config.site.base_url, path.to_string_lossy())
+            }
         };
 
         Ok(tera::Value::String(url))

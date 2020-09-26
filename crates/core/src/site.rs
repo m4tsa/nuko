@@ -37,15 +37,14 @@ impl Site {
                 theme_path.to_string_lossy()
             ))?;
 
-            let robots_path = theme_path.join("templates").join("robots.txt");
-            let sitemap_path = theme_path.join("templates").join("sitemap.xml");
+            let optional_templates = ["robots.txt", "sitemap.xml", "atom.xml", "rss.xml"];
 
-            if robots_path.is_file() {
-                tera.add_template_file(robots_path, Some("robots.txt"))?;
-            }
+            for optional_template in optional_templates.iter() {
+                let path = theme_path.join("templates").join(optional_template);
 
-            if sitemap_path.is_file() {
-                tera.add_template_file(sitemap_path, Some("sitemap.xml"))?;
+                if path.is_file() {
+                    tera.add_template_file(path, Some(optional_template))?;
+                }
             }
 
             tera
@@ -168,15 +167,27 @@ impl Site {
             self.render_page(page)?;
         }
 
+        let last_update = self.posts.last_update();
+
         // Render extras
         let mut tera_context = tera::Context::new();
         tera_context.insert("site_config", &self.site_config);
         tera_context.insert("sitemap", &self.sitemap);
+        tera_context.insert("posts", &self.posts);
+        tera_context.insert("last_update", &last_update);
 
         self.render_404(&tera_context)?;
         self.render_robots(&tera_context)?;
         self.render_sitemap(&tera_context)?;
         self.merge_static()?;
+
+        if self.site_config.feeds.atom {
+            self.render_atom(&tera_context)?;
+        }
+
+        if self.site_config.feeds.rss {
+            self.render_rss(&tera_context)?;
+        }
 
         Ok(())
     }
@@ -198,6 +209,20 @@ impl Site {
     pub fn render_sitemap(&mut self, context: &tera::Context) -> Result<()> {
         let contents = self.render_template("sitemap.xml", context)?;
         fs::write(self.out_path.join("sitemap.xml"), contents)?;
+
+        Ok(())
+    }
+
+    pub fn render_atom(&mut self, context: &tera::Context) -> Result<()> {
+        let contents = self.render_template("atom.xml", context)?;
+        fs::write(self.out_path.join("atom.xml"), contents)?;
+
+        Ok(())
+    }
+
+    pub fn render_rss(&mut self, context: &tera::Context) -> Result<()> {
+        let contents = self.render_template("rss.xml", context)?;
+        fs::write(self.out_path.join("rss.xml"), contents)?;
 
         Ok(())
     }

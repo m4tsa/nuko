@@ -67,6 +67,13 @@ impl Posts {
             }
         }
     }
+
+    pub fn last_update(&self) -> Option<NaiveDate> {
+        self.posts
+            .iter()
+            .map(|post| post.date_updated.unwrap_or(post.date))
+            .max()
+    }
 }
 
 #[derive(Error, Debug)]

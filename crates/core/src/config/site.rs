@@ -9,15 +9,24 @@ fn default_title_sep() -> char {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SiteSiteConfig {
     pub title: Option<String>,
+    pub description: Option<String>,
     pub theme: Option<String>,
     pub base_url: String,
     #[serde(default = "default_title_sep")]
     pub title_seperator: char,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct SiteFeedsConfig {
+    pub atom: bool,
+    pub rss: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SiteConfig {
     pub site: SiteSiteConfig,
+    #[serde(default)]
+    pub feeds: SiteFeedsConfig,
 }
 
 impl SiteConfig {
