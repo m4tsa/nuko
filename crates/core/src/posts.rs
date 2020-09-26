@@ -1,6 +1,6 @@
 use crate::page::Page;
 use anyhow::Result;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use serde_derive::Serialize;
 use std::{collections::BTreeMap, path::PathBuf};
 use thiserror::Error;
@@ -12,6 +12,7 @@ pub struct Post {
     page_path: PathBuf,
     date: NaiveDate,
     date_updated: Option<NaiveDate>,
+    year: i32,
     tags: Vec<String>,
 }
 
@@ -25,6 +26,13 @@ impl Posts {
     pub fn add_page(&mut self, page: &Page) -> Result<()> {
         let page_path = page.page_path();
 
+        let date = page
+            .date()
+            .ok_or_else(|| PostsError::MissingDate(page_path.into()))?
+            .clone();
+
+        let year = date.year();
+
         let post = Post {
             title: page
                 .title()
@@ -35,11 +43,9 @@ impl Posts {
                 .ok_or_else(|| PostsError::MissingDescription(page_path.into()))?
                 .into(),
             page_path: page_path.into(),
-            date: page
-                .date()
-                .ok_or_else(|| PostsError::MissingDate(page_path.into()))?
-                .clone(),
+            date,
             date_updated: page.date_updated().map(|d| d.clone()),
+            year,
             tags: page.tags().to_vec(),
         };
 
