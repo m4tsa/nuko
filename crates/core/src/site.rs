@@ -262,7 +262,7 @@ impl Site {
                             buffer_size: 64 * 1024,
                             depth: 0,
                             copy_inside: true,
-                            content_only: false
+                            content_only: false,
                         },
                     )?;
                 }
