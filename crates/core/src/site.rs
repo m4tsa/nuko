@@ -11,6 +11,7 @@ use thiserror::Error;
 
 pub struct Site {
     site_config: SiteConfig,
+    live_update: bool,
     out_path: PathBuf,
     root_path: PathBuf,
     tera: Tera,
@@ -58,6 +59,7 @@ impl Site {
             root_path: root_path.into(),
             out_path,
             site_config,
+            live_update: false,
             sitemap: Sitemap::default(),
             tera,
             pages: HashMap::new(),
@@ -67,6 +69,10 @@ impl Site {
 
     pub fn set_baseurl(&mut self, base_url: &str) {
         self.site_config.site.base_url = base_url.into();
+    }
+
+    pub fn set_liveupdate(&mut self, live_update: bool) {
+        self.live_update = live_update;
     }
 
     pub fn load_content(&mut self) -> Result<()> {
@@ -250,7 +256,16 @@ impl Site {
     }
 
     fn render_template(&self, name: &str, context: &tera::Context) -> Result<String> {
-        self.tera.render(name, context).map_err(|e| e.into())
+        let mut context = context.clone();
+
+        if name.ends_with(".html") && self.live_update {
+            context.insert(
+                "live_update",
+                &format!("<script>{}</script>", include_str!("./live_update.js")),
+            );
+        }
+
+        self.tera.render(name, &context).map_err(|e| e.into())
     }
 
     fn merge_static(&self) -> Result<()> {
