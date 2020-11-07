@@ -60,10 +60,33 @@ pub fn create_cli() -> App<'static, 'static> {
                         .takes_value(true)
                         .help("Path to the output directory for the build command"),
                 ),
+            SubCommand::with_name("serve")
+                .about("Builds the nuko site into the project dir")
+                .args(&[
+                    Arg::with_name("host")
+                        .long("host")
+                        .short("h")
+                        .default_value("127.0.0.1")
+                        .takes_value(true)
+                        .help("Address to bind on"),
+                    Arg::with_name("port")
+                        .long("port")
+                        .short("p")
+                        .default_value("1337")
+                        .takes_value(true)
+                        .help("Address to bind on"),
+                    Arg::with_name("out_dir")
+                        .long("out-dir")
+                        .short("o")
+                        .default_value("out")
+                        .takes_value(true)
+                        .help("Path to the output directory for the serve command"),
+                ]),
         ])
 }
 
 // Global config
+#[derive(Clone)]
 pub struct CliConfig {
     base_url: Option<String>,
     root_path: PathBuf,
