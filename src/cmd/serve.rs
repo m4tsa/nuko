@@ -204,7 +204,10 @@ pub fn cmd_serve(cli_config: CliConfig, socket_addr: SocketAddr, out_path: PathB
                 | DebouncedEvent::Write(_path)
                 | DebouncedEvent::Rename(_, _path) => {
                     println!("Rebuilding site...");
-                    build_site(cli_config.clone(), socket_addr, out_path.clone())?;
+                    if let Err(err) = build_site(cli_config.clone(), socket_addr, out_path.clone())
+                    {
+                        println!("Error rebuilding site: {}", err.to_string());
+                    }
 
                     revision += 1;
                     broadcast_update(revision)?;
