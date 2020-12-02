@@ -118,7 +118,12 @@ fn emit_element_start(
         Element::Italic => out.push_str("<i>"),
         Element::Underline => out.push_str("<u>"),
         Element::Verbatim { value: _ } => {}
-        Element::Code { value: _ } => {}
+        Element::Code { value } => {
+            out.push_str(&format!(
+                "<code class=\"code\">{}</code>",
+                tera::escape_html(&*value)
+            ));
+        }
         Element::Comment(_comment) => {}
         Element::FixedWidth(_fixed_width) => {}
         Element::Title(title) => {
