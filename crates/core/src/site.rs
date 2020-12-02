@@ -1,4 +1,7 @@
-use crate::{config::SiteConfig, page::Page, posts::Posts, sitemap::Sitemap, template_fns};
+use crate::{
+    config::SiteConfig, highlighting::Highlighting, page::Page, posts::Posts, sitemap::Sitemap,
+    template_fns,
+};
 use anyhow::Result;
 use glob::glob;
 use std::{
@@ -15,6 +18,7 @@ pub struct Site {
     out_path: PathBuf,
     root_path: PathBuf,
     tera: Tera,
+    highlighting: Highlighting,
     pages: HashMap<PathBuf, Page>,
     posts: Posts,
     sitemap: Sitemap,
@@ -55,12 +59,15 @@ impl Site {
 
         tera.build_inheritance_chains()?;
 
+        let highlighting = Highlighting::new(root_path, site_config.site.syntax_theme.clone())?;
+
         Ok(Site {
             root_path: root_path.into(),
             out_path,
             site_config,
             live_update: false,
             sitemap: Sitemap::default(),
+            highlighting,
             tera,
             pages: HashMap::new(),
             posts: Posts::default(),
@@ -236,7 +243,7 @@ impl Site {
     pub fn render_page(&self, page: &Page) -> Result<()> {
         let mut tera_context = tera::Context::new();
 
-        let (toc, html) = page.render_html(&self.site_config.site.base_url)?;
+        let (toc, html) = page.render_html(&self.site_config.site.base_url, &self.highlighting)?;
 
         tera_context.insert("site_config", &self.site_config);
         tera_context.insert("posts", &self.posts);

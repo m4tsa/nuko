@@ -1,4 +1,8 @@
+#[macro_use]
+extern crate lazy_static;
+
 pub mod config;
+pub mod highlighting;
 pub mod org_emitter;
 pub mod page;
 pub mod posts;

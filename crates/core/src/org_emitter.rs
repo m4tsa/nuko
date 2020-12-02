@@ -1,9 +1,14 @@
-use crate::toc::Toc;
+use crate::{highlighting::Highlighting, toc::Toc};
 use anyhow::Result;
 use orgize::{
     elements::{Element, Link},
     Event, Org,
 };
+use syntect::{
+    easy::HighlightLines,
+    html::{styled_line_to_highlighted_html, IncludeBackground},
+};
+use thiserror::Error;
 
 #[derive(Default)]
 pub struct EmitData {
@@ -26,7 +31,13 @@ fn link_to_html(base_url: &str, link: &Link) -> String {
     )
 }
 
-fn emit_element_start(out: &mut String, base_url: &str, data: &mut EmitData, element: &Element) {
+fn emit_element_start(
+    out: &mut String,
+    base_url: &str,
+    data: &mut EmitData,
+    element: &Element,
+    highlighting: &Highlighting,
+) -> Result<()> {
     match element {
         Element::SpecialBlock(_special_block) => {}
         Element::QuoteBlock(_quote_block) => {}
@@ -40,7 +51,22 @@ fn emit_element_start(out: &mut String, base_url: &str, data: &mut EmitData, ele
                 out.push_str(&export_block.contents);
             }
         }
-        Element::SourceBlock(_source_block) => {}
+        Element::SourceBlock(source_block) => {
+            if source_block.language.is_empty() {
+                out.push_str(&format!(
+                    "<pre class=code>{}</pre>",
+                    tera::escape_html(&*source_block.contents)
+                ));
+            } else {
+                let syntax = highlighting.find_syntax_by_name(&*source_block.language)?;
+                let mut syntax_highlighter = HighlightLines::new(syntax, highlighting.theme()?);
+                let regions =
+                    syntax_highlighter.highlight(&*source_block.contents, highlighting.syntaxes());
+                let html = styled_line_to_highlighted_html(&regions[..], IncludeBackground::No);
+
+                out.push_str(&format!("<pre class=code>{}</pre>", html));
+            }
+        }
         Element::BabelCall(_babel_call) => {}
         Element::Section => {}
         Element::Clock(_clock) => {}
@@ -112,6 +138,8 @@ fn emit_element_start(out: &mut String, base_url: &str, data: &mut EmitData, ele
         Element::TableRow(_table_row) => {}
         Element::TableCell(_table_cell) => {}
     }
+
+    Ok(())
 }
 
 fn emit_element_end(out: &mut String, element: &Element) {
@@ -172,14 +200,20 @@ fn emit_element_end(out: &mut String, element: &Element) {
     }
 }
 
-pub fn emit_document(document: &Org, base_url: &str) -> Result<(Toc, String)> {
+pub fn emit_document(
+    document: &Org,
+    base_url: &str,
+    highlighting: &Highlighting,
+) -> Result<(Toc, String)> {
     let mut out = String::with_capacity(1024);
 
     let mut data = EmitData::default();
 
     for event in document.iter() {
         match event {
-            Event::Start(element) => emit_element_start(&mut out, base_url, &mut data, element),
+            Event::Start(element) => {
+                emit_element_start(&mut out, base_url, &mut data, element, highlighting)?
+            }
             Event::End(element) => emit_element_end(&mut out, element),
         }
     }
@@ -223,4 +257,10 @@ pub fn emit_document(document: &Org, base_url: &str) -> Result<(Toc, String)> {
     }
 
     Ok((data.toc, out))
+}
+
+#[derive(Error, Debug)]
+pub enum OrgError {
+    #[error("unknown source block language \"{0}\"")]
+    UnknownSourceBlockLanguage(String),
 }

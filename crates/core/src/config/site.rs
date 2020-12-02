@@ -14,6 +14,7 @@ pub struct SiteSiteConfig {
     pub base_url: String,
     #[serde(default = "default_title_sep")]
     pub title_seperator: char,
+    pub syntax_theme: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

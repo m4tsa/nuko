@@ -1,4 +1,4 @@
-use crate::{config::SiteConfig, org_emitter::emit_document, toc::Toc};
+use crate::{config::SiteConfig, highlighting::Highlighting, org_emitter::emit_document, toc::Toc};
 use anyhow::Result;
 use chrono::NaiveDate;
 use orgize::Org;
@@ -142,8 +142,12 @@ impl Page {
         Page::parse(page_path, text, config)
     }
 
-    pub fn render_html(&self, base_url: &str) -> Result<(Toc, String)> {
-        emit_document(&self.document, base_url)
+    pub fn render_html(
+        &self,
+        base_url: &str,
+        highlighting: &Highlighting,
+    ) -> Result<(Toc, String)> {
+        emit_document(&self.document, base_url, highlighting)
     }
 
     pub fn document(&self) -> &Org {
