@@ -46,9 +46,18 @@ fn emit_element_start(
         Element::CommentBlock(_comment_block) => {}
         Element::ExampleBlock(_example_block) => {}
         Element::ExportBlock(export_block) => {
-            // Emit raw html
-            if export_block.data.to_ascii_lowercase() == "html" {
-                out.push_str(&export_block.contents);
+            match export_block.data.to_ascii_lowercase().as_str() {
+                // Emit raw html
+                "html" => {
+                    out.push_str(&export_block.contents);
+                }
+                // Emit latex to html using katex
+                "latex" => {
+                    out.push_str("<div class=math>");
+                    out.push_str(&katex::render(&export_block.contents)?);
+                    out.push_str("</div>");
+                }
+                _ => {}
             }
         }
         Element::SourceBlock(source_block) => {
