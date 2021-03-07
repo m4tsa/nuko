@@ -94,7 +94,7 @@ impl Page {
         let mut tags = Vec::new();
 
         if let Some(tags_value) = get_keyword(&document, "TAGS") {
-            for tag in tags_value.split(',') {
+            for tag in tags_value.split(' ') {
                 if tag.chars().any(|c| !c.is_ascii_lowercase()) {
                     return Err(PageError::InvalidTag(tag.into()).into());
                 }
