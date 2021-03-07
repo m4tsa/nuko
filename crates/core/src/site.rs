@@ -193,6 +193,7 @@ impl Site {
         self.render_robots(&tera_context)?;
         self.render_sitemap(&tera_context)?;
         self.merge_static()?;
+        self.copy_files()?;
 
         if self.site_config.feeds.atom {
             self.render_atom(&tera_context)?;
@@ -311,6 +312,34 @@ impl Site {
                             copy_inside: true,
                             content_only: false,
                         },
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn copy_files(&self) -> Result<()> {
+        if let Some(copy_files) = &self.site_config.site.copy_files {
+            for [content_path, rel_out_path] in copy_files {
+                // A malicious site config could in theory do path traversal here, but that is not a problem currently
+                let content_path = self.root_path.join(content_path);
+                let out_path = self.out_path.join(rel_out_path);
+                let files = glob(&content_path.to_string_lossy())?;
+
+                for file in files {
+                    let file = file?;
+
+                    fs::copy(
+                        &file,
+                        out_path.join(
+                            file.strip_prefix(
+                                &content_path.parent().ok_or_else(|| {
+                                    anyhow::anyhow!("content path missing parent")
+                                })?,
+                            )?,
+                        ),
                     )?;
                 }
             }
