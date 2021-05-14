@@ -171,8 +171,7 @@ pub fn cmd_serve(cli_config: CliConfig, socket_addr: SocketAddr, out_path: PathB
     // Spawn http server
     let serve_out_path = out_path.clone();
     thread::spawn(move || {
-        tokio::runtime::Builder::new()
-            .basic_scheduler()
+        tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap()
