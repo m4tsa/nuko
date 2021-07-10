@@ -137,7 +137,7 @@ async fn handle_request(req: Request<Body>, out_path: PathBuf) -> Result<Respons
         // It is a file
         } else {
             let content = fs::read(&path)?;
-            let mime = mime_guess::from_path(&path).first_or_text_plain();
+            let mime = new_mime_guess::from_path(&path).first_or_text_plain();
 
             let mut res = Response::new(Body::from(content));
 
