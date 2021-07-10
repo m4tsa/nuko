@@ -146,8 +146,9 @@ impl Page {
         &self,
         base_url: &str,
         highlighting: &Highlighting,
+        highlighting_dark: Option<&Highlighting>,
     ) -> Result<(Toc, String)> {
-        emit_document(&self.document, base_url, highlighting)
+        emit_document(&self.document, base_url, highlighting, highlighting_dark)
     }
 
     pub fn document(&self) -> &Org {

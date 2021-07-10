@@ -19,6 +19,7 @@ pub struct Site {
     root_path: PathBuf,
     tera: Tera,
     highlighting: Highlighting,
+    highlighting_dark: Option<Highlighting>,
     pages: HashMap<PathBuf, Page>,
     posts: Posts,
     sitemap: Sitemap,
@@ -60,6 +61,12 @@ impl Site {
         tera.build_inheritance_chains()?;
 
         let highlighting = Highlighting::new(root_path, site_config.site.syntax_theme.clone())?;
+        let highlighting_dark =
+            if let Some(dark_theme) = site_config.site.syntax_theme_dark.as_ref() {
+                Some(Highlighting::new(root_path, Some(dark_theme.into()))?)
+            } else {
+                None
+            };
 
         Ok(Site {
             root_path: root_path.into(),
@@ -68,6 +75,7 @@ impl Site {
             live_update: false,
             sitemap: Sitemap::default(),
             highlighting,
+            highlighting_dark,
             tera,
             pages: HashMap::new(),
             posts: Posts::default(),
@@ -244,7 +252,11 @@ impl Site {
     pub fn render_page(&self, page: &Page) -> Result<()> {
         let mut tera_context = tera::Context::new();
 
-        let (toc, html) = page.render_html(&self.site_config.site.base_url, &self.highlighting)?;
+        let (toc, html) = page.render_html(
+            &self.site_config.site.base_url,
+            &self.highlighting,
+            self.highlighting_dark.as_ref(),
+        )?;
 
         tera_context.insert("site_config", &self.site_config);
         tera_context.insert("posts", &self.posts);

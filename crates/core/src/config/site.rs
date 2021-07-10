@@ -15,6 +15,7 @@ pub struct SiteSiteConfig {
     #[serde(default = "default_title_sep")]
     pub title_seperator: char,
     pub syntax_theme: Option<String>,
+    pub syntax_theme_dark: Option<String>,
     pub copy_files: Option<Vec<[String; 2]>>,
 }
 

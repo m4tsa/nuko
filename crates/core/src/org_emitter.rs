@@ -37,6 +37,7 @@ fn emit_element_start(
     data: &mut EmitData,
     element: &Element,
     highlighting: &Highlighting,
+    highlighting_dark: Option<&Highlighting>,
 ) -> Result<()> {
     match element {
         Element::SpecialBlock(_special_block) => {}
@@ -67,13 +68,48 @@ fn emit_element_start(
                     tera::escape_html(&*source_block.contents)
                 ));
             } else {
-                let syntax = highlighting.find_syntax_by_name(&*source_block.language)?;
-                let mut syntax_highlighter = HighlightLines::new(syntax, highlighting.theme()?);
-                let regions =
-                    syntax_highlighter.highlight(&*source_block.contents, highlighting.syntaxes());
-                let html = styled_line_to_highlighted_html(&regions[..], IncludeBackground::No);
+                fn highlight_code(
+                    highlighting: &Highlighting,
+                    language: &str,
+                    code: &str,
+                ) -> Result<String> {
+                    let syntax = highlighting.find_syntax_by_name(&language)?;
+                    let mut syntax_highlighter = HighlightLines::new(syntax, highlighting.theme()?);
+                    let regions = syntax_highlighter.highlight(code, highlighting.syntaxes());
+                    Ok(styled_line_to_highlighted_html(
+                        &regions[..],
+                        IncludeBackground::No,
+                    ))
+                }
 
-                out.push_str(&format!("<pre class=code>{}</pre>", html));
+                if let Some(highlighting_dark) = highlighting_dark {
+                    // Some text browsers have dark background and does only evaluate inline styles
+                    out.push_str(&format!(
+                        "<pre class=\"code white\" style=display:none;>{}</pre>",
+                        highlight_code(
+                            highlighting,
+                            &*source_block.language,
+                            &*source_block.contents
+                        )?
+                    ));
+                    out.push_str(&format!(
+                        "<pre class=\"code dark\">{}</pre>",
+                        highlight_code(
+                            highlighting_dark,
+                            &*source_block.language,
+                            &*source_block.contents
+                        )?
+                    ));
+                } else {
+                    out.push_str(&format!(
+                        "<pre class=code>{}</pre>",
+                        highlight_code(
+                            highlighting,
+                            &*source_block.language,
+                            &*source_block.contents
+                        )?
+                    ));
+                }
             }
         }
         Element::BabelCall(_babel_call) => {}
@@ -218,6 +254,7 @@ pub fn emit_document(
     document: &Org,
     base_url: &str,
     highlighting: &Highlighting,
+    highlighting_dark: Option<&Highlighting>,
 ) -> Result<(Toc, String)> {
     let mut out = String::with_capacity(1024);
 
@@ -225,9 +262,14 @@ pub fn emit_document(
 
     for event in document.iter() {
         match event {
-            Event::Start(element) => {
-                emit_element_start(&mut out, base_url, &mut data, element, highlighting)?
-            }
+            Event::Start(element) => emit_element_start(
+                &mut out,
+                base_url,
+                &mut data,
+                element,
+                highlighting,
+                highlighting_dark,
+            )?,
             Event::End(element) => emit_element_end(&mut out, element),
         }
     }
